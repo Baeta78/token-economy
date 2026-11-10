@@ -98,6 +98,8 @@ Tools that don't store their savings show which projects they are set up in and 
 | [claude-mem](https://github.com/thedotmack/claude-mem) | memory | usage | — |
 | [TokenEconomizer](https://github.com/microsoft/TokenEconomizer) | memory | usage | — |
 
+**Starting from zero?** The *Savings* tab also lists the tools you don't have yet, grouped by what they do, with a one-line description, the official install command from each project's README and whether the panel will show its savings or only its usage. For the tools you already have, the panel compares the installed version with the latest one and, when there is an update, shows the official update command and a button that copies a ready-made instruction to paste into your own agent. The panel itself never installs or updates anything. Kinds you have nothing for come first, and *What to optimize* and the AI analysis point you there when your data shows the matching problem.
+
 Every entry was checked against the tool's own source code. The list lives in `savings_tools.json`. Missing a tool? See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Dashboard tabs
@@ -143,7 +145,7 @@ Open *Agents & models* and *Projects & sessions*: they show which model, project
 For tools that record it, the *Savings* tab shows tokens and dollars per day and per agent, from the tool's own data.
 
 **Is my data sent anywhere?**
-No. Logs are read locally. The only outgoing requests are the public price tables, the official usage endpoints of your own Claude and Codex accounts (can be turned off), the update check against this GitHub repository, and the AI analysis when you start it.
+No. Logs are read locally. The only outgoing requests are the public price tables, the official usage endpoints of your own Claude and Codex accounts (can be turned off), the update check against this GitHub repository, the latest-version lookup of the token-saving tools you have installed (PyPI, npm, crates.io or GitHub, sending only the package name, at most every 12 hours), and the AI analysis when you start it.
 
 **Does it work with a Claude Pro / Max / Ultra or ChatGPT Plus / Pro subscription?**
 Yes. It shows the windows your plan has, and the plan name comes from your account, so plan changes appear automatically.

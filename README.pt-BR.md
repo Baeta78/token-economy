@@ -98,6 +98,8 @@ As que não guardam a economia mostram em que projetos estão configuradas e qua
 | [claude-mem](https://github.com/thedotmack/claude-mem) | memória | uso | — |
 | [TokenEconomizer](https://github.com/microsoft/TokenEconomizer) | memória | uso | — |
 
+**Começando do zero?** A aba *Economia* também lista as ferramentas que você ainda não tem, agrupadas pelo que fazem, com uma descrição curta, o comando oficial de instalação tirado do README de cada projeto e se o painel vai mostrar a economia ou só o uso. Para as ferramentas que você já tem, o painel compara a versão instalada com a mais nova e, quando há atualização, mostra o comando oficial e um botão que copia uma instrução pronta para você colar no seu próprio agente. O painel em si nunca instala nem atualiza nada. Os tipos que você ainda não cobre aparecem primeiro, e *O que otimizar* e a análise por IA levam você até lá quando os seus dados mostram o problema que a ferramenta resolve.
+
 Cada item foi conferido no código-fonte da própria ferramenta. A lista fica em `savings_tools.json`. Falta alguma? Veja o [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Abas do painel
@@ -143,7 +145,7 @@ Abra *Agentes e modelos* e *Projetos e sessões*: elas mostram qual modelo, proj
 Para as ferramentas que registram, a aba *Economia* mostra tokens e dólares por dia e por agente, a partir dos dados da própria ferramenta.
 
 **Meus dados vão para algum lugar?**
-Não. Os registros são lidos localmente. As únicas conexões de saída são as tabelas públicas de preço, os endpoints oficiais de uso das suas próprias contas do Claude e do Codex (dá para desligar), a verificação de atualização neste repositório do GitHub e a análise por IA quando você a inicia.
+Não. Os registros são lidos localmente. As únicas conexões de saída são as tabelas públicas de preço, os endpoints oficiais de uso das suas próprias contas do Claude e do Codex (dá para desligar), a verificação de atualização neste repositório do GitHub, a consulta da versão mais nova das ferramentas de economia que você tem instaladas (PyPI, npm, crates.io ou GitHub, enviando só o nome do pacote, no máximo a cada 12 horas) e a análise por IA quando você a inicia.
 
 **Funciona com assinatura Claude Pro / Max / Ultra ou ChatGPT Plus / Pro?**
 Sim. Ele mostra as janelas que o seu plano tem, e o nome do plano vem da sua conta, então mudanças de plano aparecem sozinhas.

@@ -22,6 +22,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import time
 from pathlib import Path
 
@@ -39,6 +40,25 @@ def catalog() -> list[dict]:
         return json.loads(CATALOG.read_text(encoding="utf-8-sig")).get("tools") or []
     except (OSError, ValueError):
         return []
+
+
+PITCH = ("about", "install_note", "supports", "windows", "needs_external", "license", "stars")
+WIN = sys.platform == "win32"
+
+
+def for_os(f: dict, key: str) -> list:
+    """Install/update steps for this OS: the `<key>_windows` variant on Windows when the catalog has one."""
+    return f[key + "_windows"] if WIN and (key + "_windows") in f else (f.get(key) or [])
+
+
+def available(detected: list[dict]) -> list[dict]:
+    """Catalog tools NOT found on this machine, with what each one does and how to install it
+    (the panel suggests them). Detection rules stay on the server."""
+    have = {f["id"] for f in detected}
+    return [{"id": f["id"], "name": f["name"], "url": f.get("url"), "category": f.get("category"),
+             "measured": bool(f.get("measurement")), "install": for_os(f, "install"),
+             **{k: f[k] for k in PITCH if k in f}}
+            for f in catalog() if f["id"] not in have]
 
 
 def _sqlite_ro(p: Path):

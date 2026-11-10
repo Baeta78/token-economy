@@ -230,8 +230,16 @@ def data_summary(snap: dict, days: int = 7, previous: dict | None = None) -> dic
     data["token_saving_tools"] = [
         {"tool": f["name"], "category": f.get("category"), "records_savings": bool(f.get("measured")),
          "tokens_saved_in_period": int(saved.get(f["id"], 0)) if f.get("measured") else None,
-         "agents": f.get("agents"), "calls_by_agents_all_time": f.get("calls") or None}
+         "agents": f.get("agents"), "calls_by_agents_all_time": f.get("calls") or None,
+         "installed_version": (f.get("version") or {}).get("installed"),
+         "latest_version": (f.get("version") or {}).get("latest")}
         for f in (snap.get("savings") or {}).get("tools") or []]
+    have = {f.get("category") for f in (snap.get("savings") or {}).get("tools") or []}
+    data["token_saving_tools_not_installed"] = [
+        {"tool": f["name"], "category": f.get("category"), "category_already_covered": f.get("category") in have,
+         "what_it_does": (f.get("about") or {}).get("en") if isinstance(f.get("about"), dict) else f.get("about"),
+         "url": f.get("url"), "works_with": f.get("supports"), "records_savings": f.get("measured")}
+        for f in (snap.get("savings") or {}).get("available") or []]
     data["rtk"]["filterable_commands_that_bypassed_rtk"] = snap["rtk"].get("coverage", {}).get("by_command", {})
     if previous:
         data["previous_analysis"] = {

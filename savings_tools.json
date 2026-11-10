@@ -1,5 +1,5 @@
 {
-  "_readme": "Token-saving tools Token Economy can detect. Only tools found on the user's machine are shown. 'detection' lists the signals: exes (on PATH), hooks (word in an agent hook command), mcp (MCP server name registered in an agent), mcp_command (word in the MCP server command), mcp_usage (MCP server name as it appears in agent logs, mcp__<name>__tool), skills, plugins, paths (data paths; ~, %APPDATA%, %LOCALAPPDATA%, $XDG_* are expanded), proxy (text in an agent base URL) and project (files inside a project folder that show the tool was set up there). 'measurement' names the reader in savings.py, or null when the tool records no savings. Every entry was checked against the tool's own source code; add new tools with a pull request.",
+  "_readme": "Token-saving tools Token Economy can detect. Only tools found on the user's machine are shown. 'detection' lists the signals: exes (on PATH), hooks (word in an agent hook command), mcp (MCP server name registered in an agent), mcp_command (word in the MCP server command), mcp_usage (MCP server name as it appears in agent logs, mcp__<name>__tool), skills, plugins, paths (data paths; ~, %APPDATA%, %LOCALAPPDATA%, $XDG_* are expanded), proxy (text in an agent base URL) and project (files inside a project folder that show the tool was set up there). 'measurement' names the reader in savings.py, or null when the tool records no savings. Every entry was checked against the tool's own source code; add new tools with a pull request. 'about', 'install' (+ optional 'install_windows'), 'install_note', 'supports', 'license' and 'stars' describe the tool for users who don't have it yet; 'version_cmd', 'update' (+ 'update_windows'), 'registry' (pypi:/npm:/crates:) and 'releases' let the panel tell when an installed tool has a new version. All of it comes from each tool's own README; the panel never runs install or update commands.",
   "tools": [
     {
       "id": "rtk",
@@ -22,7 +22,59 @@
           "~/Library/Application Support/rtk/history.db"
         ]
       },
-      "measurement": "rtk"
+      "measurement": "rtk",
+      "about": {
+        "en": "Rewrites shell commands like git status or cargo test so the agent reads a compressed summary instead of the full output.",
+        "pt": "Reescreve comandos como git status ou cargo test para o agente ler um resumo comprimido em vez da saída inteira.",
+        "es": "Reescribe comandos como git status o cargo test para que el agente lea un resumen comprimido en lugar de la salida completa."
+      },
+      "install": [
+        "brew install rtk",
+        "rtk init -g"
+      ],
+      "install_windows": [
+        "winget install rtk-ai.rtk",
+        "rtk init -g"
+      ],
+      "install_note": {
+        "en": "`rtk init -g` hooks Claude Code; add `--codex`, `--opencode` or `--gemini` for other agents.",
+        "pt": "`rtk init -g` liga ao Claude Code; use `--codex`, `--opencode` ou `--gemini` para outros agentes.",
+        "es": "`rtk init -g` lo conecta a Claude Code; usa `--codex`, `--opencode` o `--gemini` para otros agentes."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "Cursor",
+        "Gemini CLI",
+        "GitHub Copilot",
+        "Mistral Vibe",
+        "Factory Droid",
+        "Trae",
+        "OpenClaw",
+        "Pi",
+        "Hermes",
+        "Windsurf",
+        "Cline/Roo Code",
+        "Kilo Code",
+        "Google Antigravity",
+        "Kimi"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "Apache-2.0",
+      "stars": 86111,
+      "version_cmd": [
+        "rtk",
+        "--version"
+      ],
+      "update": [
+        "brew upgrade rtk"
+      ],
+      "update_windows": [
+        "winget upgrade rtk-ai.rtk"
+      ],
+      "releases": true
     },
     {
       "id": "headroom",
@@ -41,7 +93,54 @@
           "~/.headroom/proxy_savings.json"
         ]
       },
-      "measurement": "headroom"
+      "measurement": "headroom",
+      "about": {
+        "en": "Compresses tool output, logs, files and JSON locally before they reach the model, as a local proxy or MCP server.",
+        "pt": "Comprime localmente saídas de ferramentas, logs, arquivos e JSON antes de chegarem ao modelo, como proxy local ou servidor MCP.",
+        "es": "Comprime localmente salidas de herramientas, logs, archivos y JSON antes de que lleguen al modelo, como proxy local o servidor MCP."
+      },
+      "install": [
+        "uv tool install --python 3.13 \"headroom-ai[all]\"",
+        "headroom wrap claude"
+      ],
+      "install_note": {
+        "en": "Python 3.11+. `headroom wrap` works per session; `headroom deploy` keeps the proxy running. For Codex: `headroom wrap codex`.",
+        "pt": "Python 3.11+. `headroom wrap` vale por sessão; `headroom deploy` deixa o proxy sempre ligado. No Codex: `headroom wrap codex`.",
+        "es": "Python 3.11+. `headroom wrap` sirve por sesión; `headroom deploy` deja el proxy siempre activo. En Codex: `headroom wrap codex`."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "Cursor (manual)",
+        "Copilot CLI",
+        "VS Code Copilot",
+        "Aider",
+        "Cline",
+        "Continue",
+        "Goose",
+        "OpenHands",
+        "Mistral Vibe",
+        "Oh My Pi",
+        "Factory Droid",
+        "Kimi CLI",
+        "Grok CLI",
+        "OpenClaw",
+        "ZCode"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "Apache-2.0",
+      "stars": 79312,
+      "version_cmd": [
+        "headroom",
+        "--version"
+      ],
+      "update": [
+        "headroom update"
+      ],
+      "registry": "pypi:headroom-ai",
+      "releases": true
     },
     {
       "id": "token-saver",
@@ -64,7 +163,38 @@
           "~/.claude/plugins/cache/token-saver-marketplace"
         ]
       },
-      "measurement": "token_saver"
+      "measurement": "token_saver",
+      "about": {
+        "en": "Hook that compresses terminal output (git, pytest, npm, docker and more) with format-specific rules, locally and without model calls.",
+        "pt": "Hook que comprime a saída do terminal (git, pytest, npm, docker e outros) com regras por formato, localmente e sem chamar modelo.",
+        "es": "Hook que comprime la salida de la terminal (git, pytest, npm, docker y más) con reglas por formato, en local y sin llamar a un modelo."
+      },
+      "install": [
+        "/plugin marketplace add ppgranger/token-saver",
+        "/plugin install token-saver"
+      ],
+      "install_note": {
+        "en": "Run these inside Claude Code. Python 3.10+. Codex needs a manual wrapper (see the README).",
+        "pt": "Rode dentro do Claude Code. Python 3.10+. No Codex é preciso um wrapper manual (veja o README).",
+        "es": "Ejecútalo dentro de Claude Code. Python 3.10+. En Codex hace falta un wrapper manual (ver el README)."
+      },
+      "supports": [
+        "Claude Code",
+        "Antigravity CLI",
+        "Codex (manual wrapper)"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "Apache-2.0",
+      "stars": 165,
+      "version_cmd": [
+        "token-saver",
+        "version"
+      ],
+      "update": [
+        "/plugin update token-saver"
+      ],
+      "releases": true
     },
     {
       "id": "squeez",
@@ -91,7 +221,43 @@
           "~/.copilot/squeez"
         ]
       },
-      "measurement": "squeez"
+      "measurement": "squeez",
+      "about": {
+        "en": "Hook that shrinks shell output, removes repeated calls and can read code by signatures only, across several agent CLIs.",
+        "pt": "Hook que encolhe a saída do shell, remove chamadas repetidas e pode ler código só pelas assinaturas, em vários agentes.",
+        "es": "Hook que reduce la salida del shell, elimina llamadas repetidas y puede leer código solo por firmas, en varios agentes."
+      },
+      "install": [
+        "npm install -g squeez",
+        "squeez setup"
+      ],
+      "install_note": {
+        "en": "Node 16+. Restart the agent after setup. On Windows the script installer needs Git Bash.",
+        "pt": "Node 16+. Reinicie o agente depois do setup. No Windows o instalador por script exige Git Bash.",
+        "es": "Node 16+. Reinicia el agente después del setup. En Windows el instalador por script requiere Git Bash."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "Gemini CLI",
+        "Copilot CLI",
+        "Pi",
+        "Hermes"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "Apache-2.0",
+      "stars": 229,
+      "version_cmd": [
+        "squeez",
+        "--version"
+      ],
+      "update": [
+        "squeez update"
+      ],
+      "registry": "npm:squeez",
+      "releases": true
     },
     {
       "id": "context-mode",
@@ -121,7 +287,45 @@
           "~/.context-mode/projects"
         ]
       },
-      "measurement": "context_mode"
+      "measurement": "context_mode",
+      "about": {
+        "en": "Runs tool work in a local sandbox, keeps the full output in a searchable index and returns only the part the agent asks for.",
+        "pt": "Executa o trabalho das ferramentas numa sandbox local, guarda a saída completa num índice pesquisável e devolve só o trecho que o agente pede.",
+        "es": "Ejecuta el trabajo de las herramientas en un sandbox local, guarda la salida completa en un índice consultable y devuelve solo la parte que pide el agente."
+      },
+      "install": [
+        "claude plugin marketplace add mksglu/context-mode",
+        "claude plugin install context-mode@context-mode"
+      ],
+      "install_note": {
+        "en": "Node 24.15+; on Windows needs Git for Windows. Codex: `codex plugin marketplace add mksglu/context-mode`, `codex plugin add context-mode@context-mode`, then `npm i -g context-mode` and `context-mode setup --agents codex`.",
+        "pt": "Node 24.15+; no Windows precisa do Git for Windows. Codex: `codex plugin marketplace add mksglu/context-mode`, `codex plugin add context-mode@context-mode`, depois `npm i -g context-mode` e `context-mode setup --agents codex`.",
+        "es": "Node 24.15+; en Windows necesita Git for Windows. Codex: `codex plugin marketplace add mksglu/context-mode`, `codex plugin add context-mode@context-mode`, luego `npm i -g context-mode` y `context-mode setup --agents codex`."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "Gemini CLI",
+        "Qwen Code",
+        "Pi",
+        "Copilot CLI",
+        "Kiro",
+        "VS Code",
+        "ZCode"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "Elastic-2.0",
+      "stars": 33811,
+      "version_cmd": [
+        "context-mode",
+        "--version"
+      ],
+      "update": [
+        "claude plugin update context-mode@context-mode"
+      ],
+      "releases": true
     },
     {
       "id": "lean-ctx",
@@ -152,7 +356,42 @@
           ".lean-ctx.toml"
         ]
       },
-      "measurement": "lean_ctx"
+      "measurement": "lean_ctx",
+      "about": {
+        "en": "Local context gateway that picks task-relevant context, caches file reads and compresses shell output.",
+        "pt": "Gateway de contexto local que escolhe o contexto relevante para a tarefa, guarda leituras em cache e comprime a saída do shell.",
+        "es": "Gateway de contexto local que elige el contexto relevante para la tarea, cachea lecturas de archivos y comprime la salida del shell."
+      },
+      "install": [
+        "npm install -g lean-ctx-bin",
+        "lean-ctx wrap claude"
+      ],
+      "install_note": {
+        "en": "`lean-ctx onboard` connects every agent it finds. Mixed license: core Apache-2.0, some parts under other terms.",
+        "pt": "`lean-ctx onboard` conecta todos os agentes que encontrar. Licença mista: núcleo Apache-2.0, algumas partes com outros termos.",
+        "es": "`lean-ctx onboard` conecta todos los agentes que encuentre. Licencia mixta: núcleo Apache-2.0, algunas partes con otros términos."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "Cursor",
+        "Gemini CLI",
+        "OpenCode",
+        "others"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "Mixed",
+      "stars": 3941,
+      "version_cmd": [
+        "lean-ctx",
+        "--version"
+      ],
+      "update": [
+        "lean-ctx update"
+      ],
+      "registry": "npm:lean-ctx-bin",
+      "releases": true
     },
     {
       "id": "token-optimizer",
@@ -173,7 +412,43 @@
           "~/.claude/_backups/token-optimizer/trends.db"
         ]
       },
-      "measurement": "token_optimizer"
+      "measurement": "token_optimizer",
+      "about": {
+        "en": "Plugin that audits context waste (configs, skills, memory), compresses tool output and keeps checkpoints across compaction.",
+        "pt": "Plugin que audita desperdício de contexto (configs, skills, memória), comprime saídas de ferramentas e guarda checkpoints entre compactações.",
+        "es": "Plugin que audita el desperdicio de contexto (configs, skills, memoria), comprime salidas de herramientas y guarda checkpoints entre compactaciones."
+      },
+      "install": [
+        "/plugin marketplace add alexgreensh/token-optimizer",
+        "/plugin install token-optimizer@alexgreensh-token-optimizer",
+        "/token-optimizer"
+      ],
+      "install_note": {
+        "en": "Run inside Claude Code; `/token-optimizer` once sets up the hooks. Python 3.9+. License does not allow commercial use.",
+        "pt": "Rode dentro do Claude Code; `/token-optimizer` uma vez configura os hooks. Python 3.9+. A licença não permite uso comercial.",
+        "es": "Ejecútalo dentro de Claude Code; `/token-optimizer` una vez configura los hooks. Python 3.9+. La licencia no permite uso comercial."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "Cursor",
+        "GitHub Copilot",
+        "OpenClaw",
+        "Hermes",
+        "Pi",
+        "Google Antigravity (beta)",
+        "Grok Build (beta)",
+        "Devin (beta)"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "PolyForm-Noncommercial",
+      "stars": 2953,
+      "update": [
+        "/plugin update token-optimizer@alexgreensh-token-optimizer"
+      ],
+      "releases": true
     },
     {
       "id": "caveman",
@@ -203,7 +478,40 @@
           "~/.claude/.caveman-active"
         ]
       },
-      "measurement": "caveman"
+      "measurement": "caveman",
+      "about": {
+        "en": "Skill that makes the agent answer in a terse style, plus an optional proxy that shrinks logs, JSON and web pages it reads.",
+        "pt": "Skill que faz o agente responder de forma enxuta, mais um proxy opcional que encolhe logs, JSON e páginas que ele lê.",
+        "es": "Skill que hace que el agente responda de forma escueta, más un proxy opcional que reduce logs, JSON y páginas que lee."
+      },
+      "install": [
+        "npx @caveman-ai/cli@latest"
+      ],
+      "install_note": {
+        "en": "Node.js 22.13+. The installer asks which agents to set up.",
+        "pt": "Node.js 22.13+. O instalador pergunta quais agentes configurar.",
+        "es": "Node.js 22.13+. El instalador pregunta qué agentes configurar."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "Gemini CLI",
+        "OpenCode",
+        "others (30+ listed in INSTALL.md)"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "Apache-2.0",
+      "stars": 118878,
+      "version_cmd": [
+        "caveman",
+        "--version"
+      ],
+      "update": [
+        "npx @caveman-ai/cli@latest"
+      ],
+      "registry": "npm:@caveman-ai/cli",
+      "releases": true
     },
     {
       "id": "kompact",
@@ -221,7 +529,39 @@
           "~/.kompact"
         ]
       },
-      "measurement": "kompact"
+      "measurement": "kompact",
+      "about": {
+        "en": "Local proxy between the agent and the API that compresses tool schemas, JSON, code and logs before forwarding each request.",
+        "pt": "Proxy local entre o agente e a API que comprime schemas de ferramentas, JSON, código e logs antes de encaminhar cada requisição.",
+        "es": "Proxy local entre el agente y la API que comprime esquemas de herramientas, JSON, código y logs antes de reenviar cada petición."
+      },
+      "install": [
+        "pip install kompact",
+        "kompact proxy --port 7878",
+        "export ANTHROPIC_BASE_URL=http://localhost:7878"
+      ],
+      "install_windows": [
+        "pip install kompact",
+        "kompact proxy --port 7878",
+        "setx ANTHROPIC_BASE_URL http://localhost:7878"
+      ],
+      "install_note": {
+        "en": "Python 3.10+. The proxy must stay running. Small, young project; the README doesn't cover subscription logins.",
+        "pt": "Python 3.10+. O proxy precisa ficar rodando. Projeto pequeno e novo; o README não fala de login por assinatura.",
+        "es": "Python 3.10+. El proxy debe seguir en ejecución. Proyecto pequeño y nuevo; el README no habla del inicio de sesión por suscripción."
+      },
+      "supports": [
+        "any agent using a configurable Anthropic/OpenAI base URL"
+      ],
+      "windows": null,
+      "needs_external": false,
+      "license": "MIT",
+      "stars": 5,
+      "update": [
+        "pip install -U kompact"
+      ],
+      "registry": "pypi:kompact",
+      "releases": true
     },
     {
       "id": "code-context-engine",
@@ -250,7 +590,45 @@
           ".context-engine.yaml"
         ]
       },
-      "measurement": "cce"
+      "measurement": "cce",
+      "about": {
+        "en": "Indexes the code locally (SQLite, vectors, code graph) and serves it over MCP so the agent searches the index instead of reading files.",
+        "pt": "Indexa o código localmente (SQLite, vetores, grafo de código) e serve por MCP para o agente buscar no índice em vez de ler arquivos.",
+        "es": "Indexa el código en local (SQLite, vectores, grafo de código) y lo sirve por MCP para que el agente busque en el índice en lugar de leer archivos."
+      },
+      "install": [
+        "uv tool install \"code-context-engine[local]\"",
+        "cce init"
+      ],
+      "install_note": {
+        "en": "Python 3.11+. The [local] extra needs CMake and a C++ compiler (Windows: Visual Studio Build Tools). Run `cce init` in each project.",
+        "pt": "Python 3.11+. O extra [local] precisa de CMake e compilador C++ (Windows: Visual Studio Build Tools). Rode `cce init` em cada projeto.",
+        "es": "Python 3.11+. El extra [local] necesita CMake y un compilador C++ (Windows: Visual Studio Build Tools). Ejecuta `cce init` en cada proyecto."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "Cursor",
+        "Gemini CLI",
+        "VS Code/Copilot",
+        "Tabnine",
+        "Pi",
+        "Kiro"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "MIT",
+      "stars": 455,
+      "version_cmd": [
+        "cce",
+        "--version"
+      ],
+      "update": [
+        "cce upgrade"
+      ],
+      "registry": "pypi:code-context-engine",
+      "releases": true
     },
     {
       "id": "jcodemunch",
@@ -274,12 +652,47 @@
           ".jcodemunch.jsonc"
         ]
       },
-      "measurement": "jcodemunch"
+      "measurement": "jcodemunch",
+      "about": {
+        "en": "MCP server for symbol-level code retrieval: the agent fetches one function instead of a whole file.",
+        "pt": "Servidor MCP que busca código por símbolo: o agente pega uma função em vez do arquivo inteiro.",
+        "es": "Servidor MCP que recupera código por símbolo: el agente toma una función en lugar del archivo completo."
+      },
+      "install": [
+        "uv tool install jcodemunch-mcp",
+        "jcodemunch-mcp init"
+      ],
+      "install_note": {
+        "en": "Free for non-commercial use; commercial use needs a paid license.",
+        "pt": "Grátis para uso não comercial; uso comercial exige licença paga.",
+        "es": "Gratis para uso no comercial; el uso comercial requiere una licencia de pago."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "Cursor",
+        "VS Code",
+        "Claude Desktop",
+        "any MCP client"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "jCodeMunch Dual-Use License",
+      "stars": 2841,
+      "version_cmd": [
+        "jcodemunch-mcp",
+        "--version"
+      ],
+      "update": [
+        "uv tool upgrade jcodemunch-mcp"
+      ],
+      "registry": "pypi:jcodemunch-mcp",
+      "releases": true
     },
     {
       "id": "graphify",
       "name": "Graphify",
-      "url": "https://github.com/safishamsi/graphify",
+      "url": "https://github.com/Graphify-Labs/graphify",
       "category": "code_index",
       "detection": {
         "exes": [
@@ -299,7 +712,51 @@
           "graphify-out/graph.json"
         ]
       },
-      "measurement": null
+      "measurement": null,
+      "about": {
+        "en": "Builds a knowledge graph of the code and docs with local parsing, so the agent queries the graph instead of grepping files.",
+        "pt": "Monta um grafo do código e da documentação com análise local, para o agente consultar o grafo em vez de varrer arquivos.",
+        "es": "Construye un grafo del código y la documentación con análisis local, para que el agente consulte el grafo en lugar de buscar en archivos."
+      },
+      "install": [
+        "uv tool install graphifyy",
+        "graphify install"
+      ],
+      "install_note": {
+        "en": "Python 3.10+ and uv. The package name has two y's: graphifyy. Then run `/graphify .` in the agent once per project.",
+        "pt": "Python 3.10+ e uv. O pacote se chama graphifyy, com dois y. Depois rode `/graphify .` no agente uma vez por projeto.",
+        "es": "Python 3.10+ y uv. El paquete se llama graphifyy, con dos y. Luego ejecuta `/graphify .` en el agente una vez por proyecto."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "Cursor",
+        "Gemini CLI",
+        "GitHub Copilot",
+        "Aider",
+        "Kilo Code",
+        "OpenClaw",
+        "Factory Droid",
+        "Trae",
+        "Hermes",
+        "Kimi Code",
+        "CodeBuddy",
+        "others"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "Apache-2.0",
+      "stars": 145622,
+      "version_cmd": [
+        "graphify",
+        "--version"
+      ],
+      "update": [
+        "uv tool upgrade graphifyy"
+      ],
+      "registry": "pypi:graphifyy",
+      "releases": true
     },
     {
       "id": "serena",
@@ -325,7 +782,46 @@
           ".serena/project.yml"
         ]
       },
-      "measurement": null
+      "measurement": null,
+      "about": {
+        "en": "MCP toolkit that gives the agent language-server search and symbol-level editing instead of reading whole files.",
+        "pt": "Kit MCP que dá ao agente busca por language server e edição por símbolo, em vez de ler arquivos inteiros.",
+        "es": "Kit MCP que da al agente búsqueda por language server y edición por símbolo, en lugar de leer archivos completos."
+      },
+      "install": [
+        "uv tool install -p 3.13 serena-agent",
+        "serena init",
+        "serena setup claude-code"
+      ],
+      "install_note": {
+        "en": "Requires uv. Some languages need their language server installed. The README advises against installing it from MCP marketplaces.",
+        "pt": "Precisa do uv. Algumas linguagens exigem o language server instalado. O README recomenda não instalar por marketplaces de MCP.",
+        "es": "Necesita uv. Algunos lenguajes requieren su language server instalado. El README desaconseja instalarlo desde marketplaces de MCP."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "Gemini CLI",
+        "Cursor",
+        "VS Code",
+        "JetBrains IDEs",
+        "Claude Desktop",
+        "others"
+      ],
+      "windows": null,
+      "needs_external": false,
+      "license": "GPL-3.0-or-later + MIT",
+      "stars": 31269,
+      "version_cmd": [
+        "serena",
+        "--version"
+      ],
+      "update": [
+        "uv tool upgrade serena-agent"
+      ],
+      "registry": "pypi:serena-agent",
+      "releases": true
     },
     {
       "id": "codegraph",
@@ -349,7 +845,52 @@
           ".codegraph/codegraph.db"
         ]
       },
-      "measurement": null
+      "measurement": null,
+      "about": {
+        "en": "Local code graph served over MCP that updates itself when files change, cutting file reads and tool calls.",
+        "pt": "Grafo de código local servido por MCP que se atualiza sozinho quando os arquivos mudam, reduzindo leituras e chamadas de ferramenta.",
+        "es": "Grafo de código local servido por MCP que se actualiza solo cuando cambian los archivos, reduciendo lecturas y llamadas a herramientas."
+      },
+      "install": [
+        "npm i -g @colbymchenry/codegraph",
+        "codegraph install",
+        "codegraph init"
+      ],
+      "install_note": {
+        "en": "`codegraph install` sets up your agents once; `codegraph init` runs in each project.",
+        "pt": "`codegraph install` configura os agentes uma vez; `codegraph init` roda em cada projeto.",
+        "es": "`codegraph install` configura los agentes una vez; `codegraph init` se ejecuta en cada proyecto."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "Cursor",
+        "Gemini CLI",
+        "GitHub Copilot",
+        "Hermes",
+        "Antigravity",
+        "Kiro",
+        "Windsurf",
+        "Qwen Code",
+        "Factory Droid",
+        "Kimi Code",
+        "Pi",
+        "others"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "MIT",
+      "stars": 77304,
+      "version_cmd": [
+        "codegraph",
+        "version"
+      ],
+      "update": [
+        "codegraph upgrade"
+      ],
+      "registry": "npm:@colbymchenry/codegraph",
+      "releases": true
     },
     {
       "id": "codebase-memory-mcp",
@@ -374,7 +915,43 @@
           ".codebase-memory.json"
         ]
       },
-      "measurement": null
+      "measurement": null,
+      "about": {
+        "en": "Native local server that indexes code, docs and infrastructure into a persistent graph and answers targeted MCP queries.",
+        "pt": "Servidor local nativo que indexa código, docs e infraestrutura num grafo persistente e responde consultas MCP pontuais.",
+        "es": "Servidor local nativo que indexa código, documentación e infraestructura en un grafo persistente y responde consultas MCP puntuales."
+      },
+      "install": [
+        "curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash"
+      ],
+      "install_windows": [],
+      "install_note": {
+        "en": "The installer also configures the agents it finds. On Windows, download install.ps1 from the repo and run it (Defender may flag a known false positive). Then ask the agent to 'Index this project'.",
+        "pt": "O instalador também configura os agentes que encontrar. No Windows, baixe o install.ps1 do repositório e rode (o Defender pode acusar um falso positivo conhecido). Depois peça ao agente: 'Index this project'.",
+        "es": "El instalador también configura los agentes que encuentra. En Windows, descarga install.ps1 del repositorio y ejecútalo (Defender puede marcar un falso positivo conocido). Luego pide al agente: 'Index this project'."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "Cursor",
+        "Gemini CLI",
+        "Factory Droid",
+        "Qoder CLI",
+        "GitLab Duo CLI",
+        "Devin CLI",
+        "Visual Studio",
+        "others"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "MIT",
+      "stars": 48458,
+      "version_cmd": [
+        "codebase-memory-mcp",
+        "--version"
+      ],
+      "releases": true
     },
     {
       "id": "claude-context",
@@ -392,7 +969,43 @@
           "~/.context/mcp-codebase-snapshot.json"
         ]
       },
-      "measurement": null
+      "measurement": null,
+      "about": {
+        "en": "MCP server that indexes the code into a vector database for semantic search, so the agent pulls relevant chunks instead of whole files.",
+        "pt": "Servidor MCP que indexa o código num banco vetorial para busca semântica; o agente puxa os trechos relevantes em vez de arquivos inteiros.",
+        "es": "Servidor MCP que indexa el código en una base vectorial para búsqueda semántica; el agente toma los fragmentos relevantes en lugar de archivos completos."
+      },
+      "install": [
+        "claude mcp add claude-context -e OPENAI_API_KEY=sk-your-openai-api-key -e MILVUS_ADDRESS=your-zilliz-cloud-public-endpoint -e MILVUS_TOKEN=your-zilliz-cloud-api-key -- npx @zilliz/claude-context-mcp@latest"
+      ],
+      "install_note": {
+        "en": "Node.js 20+. Needs a vector database (Zilliz Cloud or Milvus) and an embedding API key (OpenAI by default; Ollama also works). Replace the placeholder values in the command.",
+        "pt": "Node.js 20+. Precisa de um banco vetorial (Zilliz Cloud ou Milvus) e uma chave de API de embeddings (OpenAI por padrão; Ollama também serve). Troque os valores de exemplo no comando.",
+        "es": "Node.js 20+. Necesita una base vectorial (Zilliz Cloud o Milvus) y una clave de API de embeddings (OpenAI por defecto; Ollama también sirve). Sustituye los valores de ejemplo del comando."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "Gemini CLI",
+        "Cursor",
+        "Qwen Code",
+        "Claude Desktop",
+        "Windsurf",
+        "VS Code",
+        "Cline",
+        "Roo Code",
+        "Augment",
+        "Void",
+        "Cherry Studio",
+        "Zencoder",
+        "other MCP clients"
+      ],
+      "windows": null,
+      "needs_external": true,
+      "license": "MIT",
+      "stars": 12686,
+      "registry": "npm:@zilliz/claude-context-mcp",
+      "releases": false
     },
     {
       "id": "token-reducer",
@@ -417,7 +1030,32 @@
           ".cache/token-reducer/index.db"
         ]
       },
-      "measurement": null
+      "measurement": null,
+      "about": {
+        "en": "Claude Code plugin that indexes code locally (BM25, optional vectors) and returns compressed relevant context for a query.",
+        "pt": "Plugin do Claude Code que indexa o código localmente (BM25, vetores opcionais) e devolve o contexto relevante comprimido.",
+        "es": "Plugin de Claude Code que indexa el código en local (BM25, vectores opcionales) y devuelve el contexto relevante comprimido."
+      },
+      "install": [
+        "/plugin marketplace add Madhan230205/token-reducer",
+        "/plugin install token-reducer@Madhan230205-token-reducer"
+      ],
+      "install_note": {
+        "en": "Run inside Claude Code. Python 3.11+. Small project, no commits in the last 6 months.",
+        "pt": "Rode dentro do Claude Code. Python 3.11+. Projeto pequeno, sem commits nos últimos 6 meses.",
+        "es": "Ejecútalo dentro de Claude Code. Python 3.11+. Proyecto pequeño, sin commits en los últimos 6 meses."
+      },
+      "supports": [
+        "Claude Code"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "MIT",
+      "stars": 52,
+      "update": [
+        "/plugin update token-reducer@Madhan230205-token-reducer"
+      ],
+      "releases": true
     },
     {
       "id": "claude-mem",
@@ -439,7 +1077,46 @@
           "~/.claude-mem/claude-mem.db"
         ]
       },
-      "measurement": null
+      "measurement": null,
+      "about": {
+        "en": "Records what the agent does, summarizes it with a model and injects a short index of relevant memory into later sessions.",
+        "pt": "Registra o que o agente faz, resume com um modelo e injeta um índice curto da memória relevante nas sessões seguintes.",
+        "es": "Registra lo que hace el agente, lo resume con un modelo e inyecta un índice corto de la memoria relevante en sesiones posteriores."
+      },
+      "install": [
+        "npx claude-mem install"
+      ],
+      "install_note": {
+        "en": "The installer asks for a browser sign-in and offers a paid service; you can use your own plan or key instead (`--provider`). Anonymous analytics are on by default.",
+        "pt": "O instalador pede login pelo navegador e oferece um serviço pago; dá para usar seu próprio plano ou chave (`--provider`). Telemetria anônima vem ligada.",
+        "es": "El instalador pide iniciar sesión en el navegador y ofrece un servicio de pago; puedes usar tu propio plan o clave (`--provider`). La telemetría anónima viene activada."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "Cursor",
+        "Gemini",
+        "T3 Code",
+        "Antigravity",
+        "Pi",
+        "OpenClaw",
+        "Hermes",
+        "Copilot CLI (search only)",
+        "Goose (search only)",
+        "Roo Code (search only)",
+        "Warp (search only)",
+        "others"
+      ],
+      "windows": true,
+      "needs_external": false,
+      "license": "Apache-2.0",
+      "stars": 115791,
+      "update": [
+        "npx claude-mem update"
+      ],
+      "registry": "npm:claude-mem",
+      "releases": true
     },
     {
       "id": "tokeneconomizer",
@@ -454,7 +1131,38 @@
           "~/.tokeneconomizer"
         ]
       },
-      "measurement": null
+      "measurement": null,
+      "about": {
+        "en": "Plugin that learns from past sessions in a repository to state known facts upfront, prune unused tools and break failure loops.",
+        "pt": "Plugin que aprende com sessões anteriores do repositório para já informar fatos conhecidos, cortar ferramentas sem uso e interromper loops de erro.",
+        "es": "Plugin que aprende de sesiones anteriores del repositorio para indicar hechos conocidos desde el inicio, quitar herramientas sin uso y cortar bucles de error."
+      },
+      "install": [
+        "git clone https://github.com/microsoft/TokenEconomizer.git",
+        "claude plugin marketplace add \"$PWD/TokenEconomizer\"",
+        "claude plugin install tokeneconomizer@tokeneconomizer"
+      ],
+      "install_note": {
+        "en": "Research project. Keep the cloned folder in place; update with `git pull` inside it. Python 3.10+. Supports specific Claude Code versions only (see README).",
+        "pt": "Projeto de pesquisa. Mantenha a pasta clonada no lugar; atualize com `git pull` dentro dela. Python 3.10+. Só funciona com algumas versões do Claude Code (veja o README).",
+        "es": "Proyecto de investigación. Mantén la carpeta clonada en su sitio; actualiza con `git pull` dentro de ella. Python 3.10+. Solo admite algunas versiones de Claude Code (ver el README)."
+      },
+      "supports": [
+        "Claude Code",
+        "Codex",
+        "Copilot CLI",
+        "Pi",
+        "OpenCode (experimental)",
+        "Cursor Agent (experimental, macOS/Linux)",
+        "Grok Build (experimental)",
+        "Hermes (experimental)",
+        "Antigravity CLI (experimental, macOS/Linux)"
+      ],
+      "windows": null,
+      "needs_external": false,
+      "license": "Apache-2.0",
+      "stars": 5647,
+      "releases": true
     }
   ]
 }

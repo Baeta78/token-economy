@@ -98,6 +98,8 @@ Las que no guardan su ahorro muestran en qué proyectos están configuradas y cu
 | [claude-mem](https://github.com/thedotmack/claude-mem) | memoria | uso | — |
 | [TokenEconomizer](https://github.com/microsoft/TokenEconomizer) | memoria | uso | — |
 
+**¿Empiezas de cero?** La pestaña *Ahorro* también lista las herramientas que aún no tienes, agrupadas por lo que hacen, con una descripción corta, el comando oficial de instalación del README de cada proyecto y si el panel mostrará su ahorro o solo su uso. Para las herramientas que ya tienes, el panel compara la versión instalada con la más reciente y, si hay actualización, muestra el comando oficial y un botón que copia una instrucción lista para pegar en tu propio agente. El panel nunca instala ni actualiza nada por sí mismo. Los tipos que aún no cubres aparecen primero, y *Qué optimizar* y el análisis por IA te llevan ahí cuando tus datos muestran el problema que la herramienta resuelve.
+
 Cada entrada se verificó en el código fuente de la propia herramienta. La lista está en `savings_tools.json`. ¿Falta alguna? Mira [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Pestañas del panel
@@ -143,7 +145,7 @@ Abre *Agentes y modelos* y *Proyectos y sesiones*: muestran qué modelo, proyect
 Para las herramientas que lo registran, la pestaña *Ahorro* muestra tokens y dólares por día y por agente, a partir de los datos de la propia herramienta.
 
 **¿Mis datos se envían a algún lado?**
-No. Los registros se leen localmente. Las únicas conexiones salientes son las tablas públicas de precios, los endpoints oficiales de uso de tus propias cuentas de Claude y Codex (se pueden desactivar), la búsqueda de actualizaciones en este repositorio de GitHub y el análisis por IA cuando lo inicias.
+No. Los registros se leen localmente. Las únicas conexiones salientes son las tablas públicas de precios, los endpoints oficiales de uso de tus propias cuentas de Claude y Codex (se pueden desactivar), la búsqueda de actualizaciones en este repositorio de GitHub, la consulta de la versión más reciente de las herramientas de ahorro que tienes instaladas (PyPI, npm, crates.io o GitHub, enviando solo el nombre del paquete, como mucho cada 12 horas) y el análisis por IA cuando lo inicias.
 
 **¿Funciona con una suscripción Claude Pro / Max / Ultra o ChatGPT Plus / Pro?**
 Sí. Muestra las ventanas que tiene tu plan, y el nombre del plan viene de tu cuenta, así que los cambios de plan aparecen solos.

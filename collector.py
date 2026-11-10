@@ -27,6 +27,7 @@ import time
 from collections import defaultdict
 
 import savings as savings_mod
+import tool_versions
 import limits as limits_mod
 import signals as signals_mod
 import prices as prices_mod
@@ -1066,6 +1067,13 @@ def collect(progress=lambda msg: None) -> dict:
             f["projects"] = savings_mod.by_project(f["id"], tools_by_folder, heads_by_folder, projects_seen, mcp_proj, project_name)
         except Exception:  # noqa: BLE001
             f["projects"] = []
+    try:
+        versions = tool_versions.status(detected, savings_mod.catalog())
+    except Exception:  # noqa: BLE001
+        versions = {}
+    for f in detected:
+        if f["id"] in versions:
+            f["version"] = versions[f["id"]]
     savings_hour: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
     for f in detected:
         f["measured"] = f["measurement"] in ("rtk", "headroom")
@@ -1210,7 +1218,8 @@ def collect(progress=lambda msg: None) -> dict:
             "codex_api": codex_api,
         },
         "graphify": graphify,
-        "savings": {"tools": detected, "hourly": rows(savings_hour, ["hour", "agent", "tool"])},
+        "savings": {"tools": detected, "available": savings_mod.available(detected),
+                    "hourly": rows(savings_hour, ["hour", "agent", "tool"])},
         "shell_commands": {ag: dict(sorted(v.items(), key=lambda x: -x[1])[:15]) for ag, v in heads.items()},
         "prices": {
             "sources": prices_mod.info(),

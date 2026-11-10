@@ -320,3 +320,17 @@ td.truncate { max-width: 340px; overflow: hidden; text-overflow: ellipsis; text-
 .donate-qr { background: #fff; padding: 6px; border-radius: 8px; line-height: 0; }
 .donate-label { font-weight: 600; margin-bottom: 4px; }
 .donate-addr { display: block; word-break: break-all; font-size: 12px; margin-bottom: 6px; max-width: 520px; }
+
+/* tools you can add (Savings tab) */
+.add-group { margin-top: 14px; }
+.add-group > h3 { font-size: 13.5px; margin: 0 0 4px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.add-group > p { margin: 0 0 10px; color: var(--text-2); font-size: 13px; }
+.add-card p { margin: 4px 0; font-size: 13px; }
+.add-card .meta { color: var(--muted); font-size: 12px; }
+.add-cmd { display: flex; gap: 6px; align-items: flex-start; margin-top: 6px; }
+.add-cmd code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 12px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; }
+.add-cmd .btn { padding: 2px 8px; font-size: 12px; }
+.gap-tag { border-color: var(--warning); color: var(--warning); }
+details.add-more > summary { cursor: pointer; margin-top: 14px; color: var(--text-2); font-size: 13px; }
+.tool-update { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 12.5px; }
+.tool-update .btn { margin-top: 6px; padding: 2px 8px; font-size: 12px; }

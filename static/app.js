@@ -545,7 +545,86 @@ function toolCard(f, byTool, F) {
     if (pr.length) lines.push(t("sav.projects", { p: fmt(pr.filter((p) => p.installed).length), u: fmt(pr.filter((p) => p.queries).length) }));
     body = `<div class="pct muted" style="font-size:15px;font-weight:500">${esc(t("sav.notMeasured"))}</div>${lines.map((l) => `<div class="muted">${esc(l)}</div>`).join("")}`;
   }
-  return `<div class="window-card">${head}${body}${ags}</div>`;
+  return `<div class="window-card">${head}${body}${ags}${versionHtml(f)}</div>`;
+}
+
+// installed version and, when there is a newer one, the update command and a ready-made
+// instruction to paste into the user's own agent (the panel never installs anything itself)
+function versionHtml(f) {
+  const v = f.version;
+  if (!v || !v.installed) return "";
+  if (!v.newer) return `<div class="muted">${esc(t("upd.current", { v: v.installed }))}</div>`;
+  const cmds = (v.update || []).map((c) => `<div class="add-cmd"><code>${esc(c)}</code></div>`).join("");
+  return `<div class="tool-update"><b>${esc(t("upd.available", { a: v.installed, b: v.latest }))}</b>${cmds}
+    <button class="btn" data-agent-prompt="${esc(f.id)}">${esc(t("upd.copyPrompt"))}</button></div>`;
+}
+
+function agentPrompt(f) {
+  const v = f.version;
+  const steps = (v.update || []).map((c) => "  " + c).join(String.fromCharCode(10));
+  return t("upd.prompt", { name: f.name, a: v.installed, b: v.latest, url: f.url || "", check: v.check || "", path: v.path || "?",
+    steps: steps || t("upd.prompt.noCmd", { url: f.url || "" }) });
+}
+
+function bindAgentPrompts(root) {
+  root.querySelectorAll("[data-agent-prompt]").forEach((b) => b.onclick = async () => {
+    const f = detectedTools().find((x) => x.id === b.dataset.agentPrompt);
+    try { await navigator.clipboard.writeText(agentPrompt(f)); b.textContent = t("donate.copied"); } catch { /* no clipboard */ }
+  });
+}
+
+// tools not found on this machine: what each does and how to install it, gaps first
+const ADD_CATS = ["command_output", "code_index", "proxy", "memory", "response_style"];
+const pick = (v) => (v && typeof v === "object" ? v[LANG] || v.en || "" : v || "");
+const withCode = (s) => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>");  // `cmd` in notes
+const missingCats = () => {
+  const have = new Set(detectedTools().map((f) => f.category));
+  return ADD_CATS.filter((c) => !have.has(c) && (S.data.savings?.available || []).some((f) => f.category === c));
+};
+
+function addCard(f) {
+  const steps = f.install || [];
+  const cmds = steps.map((c, i) => `<div class="add-cmd"><code>${esc(c)}</code><button class="btn" data-add-copy="${esc(f.id)}:${i}">${esc(t("donate.copy"))}</button></div>`).join("");
+  const sup = (f.supports || []).filter((a) => !/^(others|any)\b/i.test(a)).map((a) => a.replace(/\s*\(.*\)$/, ""));
+  const meta = [
+    sup.length ? t("add.works", { list: sup.slice(0, 6).join(", ") + (sup.length > 6 ? " +" + (sup.length - 6) : "") }) : "",
+    f.license ? t("add.license", { l: f.license }) : "",
+    f.windows === false ? t("add.noWindows") : "",
+    f.needs_external ? t("add.external") : "",
+  ].filter(Boolean).join(" · ");
+  return `<div class="window-card add-card">
+    <div class="head"><b><a class="link" href="${esc(f.url || "#")}" target="_blank" rel="noopener">${esc(f.name)}</a></b><span class="tag">${esc(t(f.measured ? "add.measured" : "add.usage"))}</span></div>
+    ${pick(f.about) ? `<p>${esc(pick(f.about))}</p>` : ""}
+    ${meta ? `<p class="meta">${esc(meta)}</p>` : ""}
+    ${cmds || `<p class="meta">${esc(t("add.seeRepo"))}</p>`}
+    ${pick(f.install_note) ? `<p class="meta">${withCode(pick(f.install_note))}</p>` : ""}
+    <p class="meta"><a class="link" href="${esc(f.url || "#")}" target="_blank" rel="noopener">${esc(t("add.readme"))}</a></p>
+  </div>`;
+}
+
+function renderAddTools() {
+  const av = S.data.savings?.available || [];
+  const block = document.getElementById("block-sav-add");
+  block.hidden = !av.length;
+  if (!av.length) return;
+  const gaps = missingCats();
+  const group = (c) => {
+    const list = av.filter((f) => f.category === c).sort((a, b) => (b.measured - a.measured) || ((b.stars || 0) - (a.stars || 0)));
+    if (!list.length) return "";
+    const gap = gaps.includes(c) ? `<span class="tag gap-tag">${esc(t("add.gap"))}</span>` : `<span class="tag">${esc(t("add.have"))}</span>`;
+    return `<div class="add-group"><h3>${esc(capitalize(t("cat." + c)))} ${gap}</h3><p>${esc(t("add.cat." + c))}</p>
+      <div class="grid g3" style="margin:0">${list.map(addCard).join("")}</div></div>`;
+  };
+  const cats = [...ADD_CATS, ...new Set(av.map((f) => f.category).filter((c) => !ADD_CATS.includes(c)))];
+  const first = cats.filter((c) => gaps.includes(c)).map(group).join("");
+  const rest = cats.filter((c) => !gaps.includes(c)).map(group).join("");
+  const el = document.getElementById("sav-add");
+  el.innerHTML = first + (rest ? (first ? `<details class="add-more"><summary>${esc(t("add.more"))}</summary>${rest}</details>` : rest) : "")
+    + `<p class="meta" style="margin-top:14px">${esc(t("add.disclaimer"))}</p>`;
+  el.querySelectorAll("[data-add-copy]").forEach((b) => b.onclick = async () => {
+    const [id, i] = b.dataset.addCopy.split(":");
+    try { await navigator.clipboard.writeText(av.find((f) => f.id === id).install[+i]); b.textContent = t("donate.copied"); } catch { /* no clipboard */ }
+  });
 }
 
 function renderSavings(F) {
@@ -567,6 +646,9 @@ function renderSavings(F) {
   document.getElementById("sav-tools").innerHTML = det.length
     ? det.map((f) => toolCard(f, byTool, F)).join("")
     : `<div class="empty">${esc(t("sav.none"))}</div>`;
+  bindAgentPrompts(document.getElementById("sav-tools"));
+
+  renderAddTools();
 
   // unmeasured tools: which projects they are set up in and how often they were queried
   const projNotMeasured = det.filter((f) => !f.measured).flatMap((f) => (f.projects || []).map((p) => ({ ...p, id: f.id, name: f.name })));
@@ -786,6 +868,18 @@ function renderTips(F) {
   const g = d.graphify || {};
   const chG = Object.values(g.calls || {}).reduce((a, b) => a + b, 0);
   if (hasTool("graphify") && (g.projects || []).length <= 3 && chG < 20) add("low", t("d.gf.t"), t("d.gf.p", { n: (g.projects || []).length, c: fmt(chG) }), t("d.gf.a"));
+
+  // installed tools with a newer version
+  const outdated = detectedTools().filter((f) => f.version?.newer);
+  if (outdated.length) {
+    add("low", t("d.upd.t", { n: outdated.length }), outdated.map((f) => `${f.name} ${f.version.installed} → ${f.version.latest}`).join(", ") + ".", t("d.upd.a"));
+  }
+
+  // categories with no token-saving tool installed: point to the suggestions in the Savings tab
+  for (const c of missingCats().filter((c) => c === "command_output" || c === "code_index")) {
+    const names = (d.savings.available || []).filter((f) => f.category === c).sort((a, b) => (b.measured - a.measured) || ((b.stars || 0) - (a.stars || 0))).slice(0, 3).map((f) => f.name).join(", ");
+    add("medium", t("d.add." + c + ".t"), t("d.add." + c + ".p", { list: names }), t("d.add.a"));
+  }
 
   // share
   const sorted = [...byAg.entries()].sort((a, b) => b[1].new - a[1].new);
