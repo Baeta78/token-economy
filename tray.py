@@ -25,12 +25,14 @@ from pathlib import Path
 import pystray
 from PIL import Image, ImageDraw
 
+import runtime
+
 BASE = Path(__file__).resolve().parent
 PORT = 8765
 URL = f"http://127.0.0.1:{PORT}"
 NAME = "Token Economy"
-LOG = BASE / ".cache" / "tray.log"
-CONFIG = BASE / ".cache" / "config.json"
+LOG = runtime.CACHE / "tray.log"
+CONFIG = runtime.CACHE / "config.json"
 STARTUP_DIR = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
 STARTUP = STARTUP_DIR / f"{NAME}.vbs"
 STARTUP_OLD = [STARTUP_DIR / "Painel de tokens.vbs", STARTUP_DIR / "Token Panel.vbs"]  # earlier names

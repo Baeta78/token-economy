@@ -27,8 +27,10 @@ import urllib.request
 from collections import defaultdict
 from pathlib import Path
 
+import runtime
+
 BASE = Path(__file__).resolve().parent
-CACHE = BASE / ".cache"
+CACHE = runtime.CACHE
 WORK_DIR = CACHE / "ai"
 HISTORY = CACHE / "ai_analyses.json"
 PROMPT = BASE / "prompts" / "analysis.md"
@@ -359,6 +361,8 @@ def history() -> list[dict]:
 
 def analyze(snap: dict, cfg: dict, language: str) -> None:
     """Runs in the background. The result goes to .cache/ai_analyses.json."""
+    if runtime.DEMO:
+        raise RuntimeError("demo")  # demo mode runs no AI; the server answers before this
     with _lock:
         if state["running"]:
             return

@@ -897,6 +897,7 @@ function updateAIFields() {
 }
 
 async function analyzeAI() {
+  if (S.config?.demo) return renderAI();  // demo mode runs no AI (the server refuses it too)
   const v = elAI("ai-provider").value || "";
   const body = { language: LANG, days: elAI("ai-days").value, model: elAI("ai-model").value.trim() };
   if (v.startsWith("cli:")) Object.assign(body, { type: "cli", cli: v.slice(4) });
@@ -925,7 +926,8 @@ function renderAI() {
   elAI("ai-analyze").disabled = !!st.running;
   elAI("ai-status").innerHTML = st.running
     ? `<div class="ai-status">${esc(t("ai.running", { stage: "", s: Math.round(Date.now() / 1000 - (st.started || Date.now() / 1000)) }))}</div>`
-    : st.error ? `<div class="ai-status error">${esc(t("ai.error", { msg: st.error }))}</div>` : "";
+    : st.error ? `<div class="ai-status error">${esc(t("ai.error", { msg: st.error }))}</div>`
+    : S.config?.demo ? `<div class="ai-status">${esc(t("ai.demo"))}</div>` : "";
   const hist = S.ai.history || [];
   if (!hist.length) {
     elAI("ai-result").innerHTML = `<div class="empty">${esc(t("ai.none"))}</div>`;
@@ -1232,6 +1234,7 @@ function renderScore() {
 // ---------------------------------------------------------------------------
 async function loadConfig() {
   try { S.config = await (await fetch("/api/config", { cache: "no-store" })).json(); } catch { S.config = {}; }
+  document.getElementById("demo-badge").hidden = !S.config?.demo;
   renderSubscriptions();
   initLimitsSetting();
   renderAll();

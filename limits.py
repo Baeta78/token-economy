@@ -28,8 +28,10 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import runtime
+
 BASE = Path(__file__).resolve().parent
-CACHE = BASE / ".cache"
+CACHE = runtime.CACHE
 CLAUDE_HISTORY = CACHE / "claude_limits.jsonl"
 CONFIG = CACHE / "config.json"
 CLAUDE_URL = "https://api.anthropic.com/api/oauth/usage"
@@ -152,6 +154,11 @@ def _ts(v) -> float | None:
 
 
 def _query_claude() -> dict:
+    if runtime.DEMO:
+        # demo mode: never reads a login nor calls Anthropic; the answer comes from demo.py
+        import demo
+        res = {"ok": False, "read_at": time.time(), "plan": demo.CLAUDE_PLAN}
+        return _read_claude_usage(res, demo.claude_usage(res["read_at"]))
     tok, info = _claude_login()
     res = {"ok": False, "read_at": time.time(), **info}
     if not tok:
@@ -170,6 +177,11 @@ def _query_claude() -> dict:
     except Exception as e:  # noqa: BLE001
         res["error"] = type(e).__name__
         return res
+    return _read_claude_usage(res, d)
+
+
+def _read_claude_usage(res: dict, d: dict) -> dict:
+    """Reads the usage endpoint answer into res (windows, extra credits, cloud credits)."""
     # fixed windows: five_hour, seven_day, seven_day_sonnet… A null window does not exist
     # in the plan (the verified Ultra, for example, has no 5 h window) and is not shown.
     windows = []
@@ -271,6 +283,11 @@ def _id_from_duration(sec) -> tuple[str, float | None]:
 
 
 def _query_codex() -> dict:
+    if runtime.DEMO:
+        # demo mode: never reads a login nor calls OpenAI; the answer comes from demo.py
+        import demo
+        res = {"ok": False, "read_at": time.time()}
+        return _read_codex_usage(res, demo.codex_usage(res["read_at"]))
     tok, account = _codex_login()
     res = {"ok": False, "read_at": time.time()}
     if not tok:
@@ -288,6 +305,11 @@ def _query_codex() -> dict:
     except Exception as e:  # noqa: BLE001
         res["error"] = type(e).__name__
         return res
+    return _read_codex_usage(res, d)
+
+
+def _read_codex_usage(res: dict, d: dict) -> dict:
+    """Reads the usage endpoint answer into res (windows and plan)."""
 
     def read_windows(rl, prefix=""):
         out = []

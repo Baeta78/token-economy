@@ -1,11 +1,14 @@
 """Token Economy: local server. Opens at http://127.0.0.1:8765
 
-Usage:  python server.py [--port 8765] [--interval 60] [--no-browser]
+Usage:  python server.py [--port 8765] [--interval 60] [--no-browser] [--demo]
+
+--demo shows fictional data (port 8766 by default); see demo.py.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 import threading
 import time
 import traceback
@@ -13,14 +16,19 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-import ai
-import cache_migration
-import collector
-import prices
-import score
+if __name__ == "__main__" and "--demo" in sys.argv[1:]:
+    import demo
+    demo.setup()  # fictional data; must run before the modules below read their paths
+
+import ai  # noqa: E402
+import cache_migration  # noqa: E402
+import collector  # noqa: E402
+import prices  # noqa: E402
+import runtime  # noqa: E402
+import score  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent / "static"
-CONFIG = Path(__file__).resolve().parent / ".cache" / "config.json"
+CONFIG = runtime.CACHE / "config.json"
 
 
 def read_config() -> dict:
@@ -69,6 +77,8 @@ def public_config() -> dict:
     if isinstance(cfg.get("ai"), dict):
         cfg["ai"] = {k: v for k, v in cfg["ai"].items() if k != "key"}
         cfg["ai"]["has_key"] = bool(read_config()["ai"].get("key"))
+    if runtime.DEMO:
+        cfg["demo"] = True
     return cfg
 
 
@@ -119,6 +129,8 @@ class Handler(SimpleHTTPRequestHandler):
         pass
 
     def _json(self, body: bytes, code: int = 200):
+        if runtime.DEMO:
+            body = _demo_mask(body)
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -149,7 +161,7 @@ class Handler(SimpleHTTPRequestHandler):
             cfg = read_config()
             hist = ai.history()
             txt = ai.build_prompt(state["data"], cfg.get("language", "en"), int((cfg.get("ai") or {}).get("days") or 7), hist[0] if hist else None)
-            body = txt.encode("utf-8")
+            body = _demo_mask(txt.encode("utf-8")) if runtime.DEMO else txt.encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -176,6 +188,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_error(403)
             return
         if self.path.startswith("/api/ai/analyze"):
+            if runtime.DEMO:  # demo mode runs no AI
+                return self._json(b'{"error":"demo"}', 403)
             if state["data"] is None:
                 return self._json(b'{"error":"loading"}', 409)
             try:
@@ -204,6 +218,19 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_error(404)
 
 
+def _demo_mask(body: bytes) -> bytes:
+    """Demo mode: shows the fake home folder as a fictional user folder (see demo.mask)."""
+    import demo
+    return demo.mask(body.decode("utf-8")).encode("utf-8")
+
+
+def _port_answers(port: int) -> bool:
+    import socket
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
 def start(port: int = 8765, interval: int = 60) -> ThreadingHTTPServer:
     """Starts the server and the collection in background threads. Used by the tray app."""
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
@@ -215,16 +242,21 @@ def start(port: int = 8765, interval: int = 60) -> ThreadingHTTPServer:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--port", type=int, default=None, help="default 8765 (8766 with --demo)")
     ap.add_argument("--interval", type=int, default=60, help="seconds between collections")
     ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument("--demo", action="store_true", help="fictional data, for screenshots and trying the panel out")
     args = ap.parse_args()
+    port = args.port or (8766 if args.demo else 8765)
+    if args.demo and _port_answers(port):
+        # Windows lets a second server bind a busy port, and the browser would reach the other one
+        sys.exit(f"Port {port} is already in use. Choose another one: python server.py --demo --port 8767")
 
-    srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    srv =ThreadingHTTPServer(("127.0.0.1", port), Handler)
     cache_migration.migrate()  # only once the port is ours: no other instance is using .cache/
     threading.Thread(target=loop, args=(args.interval,), daemon=True).start()
-    url = f"http://127.0.0.1:{args.port}"
-    print(f"Token Economy: {url}  (Ctrl+C)")
+    url = f"http://127.0.0.1:{port}"
+    print(f"Token Economy{' (demo data)' if args.demo else ''}: {url}  (Ctrl+C)")
     if not args.no_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     try:

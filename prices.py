@@ -18,8 +18,10 @@ import time
 import urllib.request
 from pathlib import Path
 
+import runtime
+
 BASE = Path(__file__).resolve().parent
-CACHE = BASE / ".cache"
+CACHE = runtime.CACHE
 SOURCES = {
     "litellm": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
     "openrouter": "https://openrouter.ai/api/v1/models",
@@ -80,6 +82,8 @@ def _convert_openrouter(d: dict) -> dict:
 
 def refresh(force: bool = False) -> dict:
     """Downloads the public tables. Returns {source: 'ok' | 'error: ...' | 'up to date'}."""
+    if runtime.DEMO:  # demo mode: uses the tables copied at startup, downloads nothing
+        return {name: "demo" for name in SOURCES}
     CACHE.mkdir(exist_ok=True)
     res = {}
     for name, url in SOURCES.items():
@@ -122,7 +126,7 @@ def _load() -> dict:
         if _table is not None:
             return _table
         layers = []
-        manual = _models(BASE / "prices.json")
+        manual = {} if runtime.DEMO else _models(BASE / "prices.json")  # demo: no personal overrides
         layers.append(("manual", {k.lower(): v for k, v in manual.items()}))
         for name in ("litellm", "openrouter"):
             p = CACHE / f"prices_{name}.json"

@@ -12,7 +12,9 @@ import os
 import re
 from pathlib import Path
 
-CACHE = Path(__file__).resolve().parent / ".cache"
+import runtime
+
+CACHE = runtime.CACHE
 
 # files whose content did not change, only their name
 RENAMES = {

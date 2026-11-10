@@ -30,12 +30,13 @@ import savings as savings_mod
 import limits as limits_mod
 import signals as signals_mod
 import prices as prices_mod
+import runtime
 from pathlib import Path
 
 HOME = Path(os.environ.get("USERPROFILE") or Path.home())
 LOCAL = Path(os.environ.get("LOCALAPPDATA") or HOME / "AppData" / "Local")
 BASE = Path(__file__).resolve().parent
-CACHE_DIR = BASE / ".cache"
+CACHE_DIR = runtime.CACHE
 CACHE_FILE = CACHE_DIR / "file_index.json"
 CACHE_VERSION = 5
 
@@ -514,6 +515,10 @@ def scan_ollama() -> dict:
             out["ok"] = True
         except Exception as e:  # noqa: BLE001
             out["error"] = str(e)
+    if runtime.DEMO:  # demo mode: never runs the real ollama
+        import demo
+        out["models"], out["loaded"] = demo.ollama_models()
+        return out
     try:
         import subprocess
 

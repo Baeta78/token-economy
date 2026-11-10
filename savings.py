@@ -25,6 +25,7 @@ import sqlite3
 import time
 from pathlib import Path
 
+import runtime
 import signals
 
 BASE = Path(__file__).resolve().parent
@@ -174,6 +175,8 @@ def read_caveman(since: float) -> list[dict]:
 def read_kompact() -> dict | None:
     """Kompact keeps its numbers in memory only: reads the proxy summary, if it is running."""
     import urllib.request
+    if runtime.DEMO:  # demo mode: no calls to services running on this machine
+        return None
     port = os.environ.get("KOMPACT_PORT", "7878")
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/metrics", timeout=1.5) as r:
