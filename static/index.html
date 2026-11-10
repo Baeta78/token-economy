@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Economy</title>
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<header class="topo">
+  <div class="marca">
+    <img src="logo.svg" alt="" class="logo" width="30" height="30">
+    <h1 data-i18n="app">Token Economy</h1>
+    <span id="atualizado" class="mudo"></span>
+  </div>
+  <div class="controles">
+    <div class="segmentado" id="periodo" role="group" data-i18n-aria="periodo.label">
+      <button data-p="hoje" data-i18n="periodo.hoje"></button>
+      <button data-p="24h" data-i18n="periodo.24h"></button>
+      <button data-p="7d" data-i18n="periodo.7d" class="ativo"></button>
+      <button data-p="30d" data-i18n="periodo.30d"></button>
+      <button data-p="tudo" data-i18n="periodo.tudo"></button>
+    </div>
+    <div class="segmentado" id="unidade" role="group" data-i18n-aria="unidade.label" data-i18n-title="unidade.dica">
+      <button data-u="tokens" data-i18n="unidade.tokens"></button>
+      <button data-u="usd" data-i18n="unidade.usd"></button>
+    </div>
+    <div class="chips" id="filtro-agentes"></div>
+    <button id="btn-atualizar" class="botao" data-i18n="btn.atualizar" data-i18n-title="btn.atualizar.dica"></button>
+    <label class="seletor-idioma">
+      <span class="sr" data-i18n="idioma"></span>
+      <select id="idioma" data-i18n-title="idioma"></select>
+    </label>
+    <button id="btn-tema" class="botao icone" data-i18n-title="btn.tema" data-i18n-aria="btn.tema">◐</button>
+  </div>
+</header>
+
+<nav class="abas" id="abas">
+  <a href="#resumo" class="ativo" data-i18n="aba.resumo"></a>
+  <a href="#visao" data-i18n="aba.visao"></a>
+  <a href="#limites" data-i18n="aba.limites"></a>
+  <a href="#modelos" data-i18n="aba.modelos"></a>
+  <a href="#economia" data-i18n="aba.economia"></a>
+  <a href="#projetos" data-i18n="aba.projetos"></a>
+  <a href="#ferramentas" data-i18n="aba.ferramentas"></a>
+  <a href="#dicas" data-i18n="aba.dicas"></a>
+  <a href="#fontes" data-i18n="aba.fontes"></a>
+</nav>
+
+<main id="conteudo">
+  <div id="carregando" class="carregando">
+    <div class="spinner"></div>
+    <p id="carregando-status" data-i18n="carregando.titulo"></p>
+    <p class="mudo" data-i18n="carregando.sub"></p>
+  </div>
+
+  <section id="resumo" class="secao" hidden>
+    <div class="grade g3 resumo-topo">
+      <div class="cartao">
+        <div class="cartao-topo"><h2 data-i18n="resumo.nota"></h2></div>
+        <div id="resumo-nota"></div>
+      </div>
+      <div class="cartao">
+        <div class="cartao-topo"><h2 data-i18n="resumo.valor"></h2></div>
+        <div id="resumo-valor"></div>
+      </div>
+      <div class="cartao">
+        <div class="cartao-topo"><h2 data-i18n="resumo.limites"></h2></div>
+        <div id="resumo-limites"></div>
+      </div>
+    </div>
+    <div class="grade g2">
+      <div class="cartao">
+        <div class="cartao-topo"><h2 data-i18n="resumo.pizza"></h2></div>
+        <div class="grafico"><canvas id="g-pizza"></canvas></div>
+      </div>
+      <div class="cartao">
+        <div class="cartao-topo"><h2 data-i18n="resumo.dias"></h2></div>
+        <div class="grafico"><canvas id="g-resumo-dias"></canvas></div>
+      </div>
+      <div class="cartao largo">
+        <div class="cartao-topo"><h2 data-i18n="resumo.insights"></h2><a href="#dicas" class="link" data-i18n="resumo.insights.ver"></a></div>
+        <div id="resumo-insights"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="visao" class="secao" hidden>
+    <div class="kpis" id="kpis"></div>
+    <div class="grade g2">
+      <div class="cartao largo">
+        <div class="cartao-topo"><h2 id="tit-diario"></h2><span class="mudo" id="sub-diario"></span></div>
+        <p class="explica" id="exp-diario"></p>
+        <div class="grafico alto"><canvas id="g-diario"></canvas></div>
+      </div>
+      <div class="cartao">
+        <div class="cartao-topo"><h2 data-i18n="visao.consome"></h2></div>
+        <p class="explica" id="exp-consome"></p>
+        <div id="participacao"></div>
+      </div>
+      <div class="cartao">
+        <div class="cartao-topo"><h2 data-i18n="visao.economiza"></h2></div>
+        <p class="explica" id="exp-economiza"></p>
+        <div id="economia-agente"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="limites" class="secao" hidden>
+    <div class="cartao largo" style="margin-bottom:16px">
+      <div class="cartao-topo"><h2 data-i18n="jan.titulo"></h2></div>
+      <p class="explica" data-i18n="jan.explica"></p>
+      <div id="lim-janelas"></div>
+    </div>
+    <div class="grade g2">
+      <div class="cartao largo">
+        <div class="cartao-topo"><h2 data-i18n="lim.historico"></h2></div>
+        <p class="explica" data-i18n="lim.grafico.explica"></p>
+        <div class="grafico"><canvas id="g-codex-limite"></canvas></div>
+        <h2 style="margin-top:18px" data-i18n="lim.janelas"></h2>
+        <div class="tabela-rolagem"><table id="t-janelas"></table></div>
+      </div>
+      <div class="cartao largo">
+        <div class="cartao-topo"><h2 data-i18n="lim.ult5h"></h2></div>
+        <p class="explica" data-i18n="lim.ult5h.explica"></p>
+        <div id="ultimas-5h"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="modelos" class="secao" hidden>
+    <div class="grade g2">
+      <div class="cartao largo">
+        <div class="cartao-topo"><h2 data-i18n="mod.tabela"></h2></div>
+        <p class="explica" data-i18n="mod.tabela.explica"></p>
+        <div class="tabela-rolagem"><table id="t-modelos"></table></div>
+      </div>
+      <div class="cartao largo">
+        <div class="cartao-topo"><h2 data-i18n="mod.porHora"></h2></div>
+        <div class="grafico"><canvas id="g-hora"></canvas></div>
+      </div>
+      <div class="cartao">
+        <div class="cartao-topo"><h2 data-i18n="mod.composicao"></h2></div>
+        <p class="explica" data-i18n="mod.composicao.explica"></p>
+        <div class="grafico"><canvas id="g-composicao"></canvas></div>
+      </div>
+      <div class="cartao">
+        <div class="cartao-topo"><h2 data-i18n="mod.horario"></h2></div>
+        <p class="explica" data-i18n="mod.horario.explica"></p>
+        <div class="grafico"><canvas id="g-horadia"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="economia" class="secao" hidden>
+    <div class="kpis" id="kpis-economia"></div>
+    <div class="cartao largo" style="margin-bottom:16px">
+      <div class="cartao-topo"><h2 data-i18n="eco.minhas"></h2></div>
+      <p class="explica" data-i18n="eco.minhas.explica"></p>
+      <div id="eco-ferramentas" class="grade g3" style="margin:0"></div>
+    </div>
+    <div class="cartao largo" id="bloco-eco-projetos" style="margin-bottom:16px" hidden>
+      <div class="cartao-topo"><h2 data-i18n="eco.proj"></h2></div>
+      <p class="explica" data-i18n="eco.proj.explica"></p>
+      <div class="tabela-rolagem"><table id="t-eco-projetos"></table></div>
+    </div>
+    <div class="grade g2">
+      <div class="cartao largo" id="bloco-eco-dia">
+        <div class="cartao-topo"><h2 id="tit-eco-dia"></h2></div>
+        <div class="grafico"><canvas id="g-economia"></canvas></div>
+      </div>
+      <div class="cartao largo" id="bloco-rtk-cmd">
+        <div class="cartao-topo"><h2 data-i18n="eco.rtkCmd"></h2></div>
+        <p class="explica" data-i18n="eco.rtkCmd.explica"></p>
+        <div class="tabela-rolagem"><table id="t-rtk-cmd"></table></div>
+      </div>
+      <div class="cartao" id="bloco-rtk-hook">
+        <div class="cartao-topo"><h2 data-i18n="eco.hook"></h2></div>
+        <p class="explica" data-i18n="eco.hook.explica"></p>
+        <div id="rtk-hook"></div>
+      </div>
+      <div class="cartao" id="bloco-rtk-falhas">
+        <div class="cartao-topo"><h2 data-i18n="eco.falhas"></h2></div>
+        <p class="explica" data-i18n="eco.falhas.explica"></p>
+        <div id="rtk-falhas"></div>
+      </div>
+      <div class="cartao largo" id="bloco-headroom">
+        <div class="cartao-topo"><h2 data-i18n="eco.headroom"></h2></div>
+        <div class="tabela-rolagem"><table id="t-headroom"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="projetos" class="secao" hidden>
+    <div class="grade g2">
+      <div class="cartao largo">
+        <div class="cartao-topo"><h2 data-i18n="proj.top"></h2></div>
+        <div class="tabela-rolagem"><table id="t-projetos"></table></div>
+      </div>
+      <div class="cartao largo">
+        <div class="cartao-topo"><h2 data-i18n="proj.sessoes"></h2></div>
+        <div class="tabela-rolagem"><table id="t-sessoes"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="ferramentas" class="secao" hidden>
+    <div class="grade g3" id="ferramentas-grade"></div>
+    <div class="grade g2">
+      <div class="cartao largo">
+        <div class="cartao-topo"><h2 data-i18n="ol.titulo"></h2></div>
+        <div id="ollama"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="dicas" class="secao" hidden>
+    <div class="cartao largo" style="margin-bottom:16px">
+      <div class="cartao-topo"><h2 data-i18n="nota.titulo"></h2></div>
+      <p class="explica" data-i18n="nota.explica"></p>
+      <div id="nota-detalhe"></div>
+    </div>
+    <div class="cartao largo" id="cartao-ia">
+      <div class="cartao-topo"><h2 data-i18n="ia.titulo"></h2></div>
+      <p class="explica" data-i18n="ia.explica"></p>
+      <div class="ia-form">
+        <label><span data-i18n="ia.usar"></span><select id="ia-provedor"></select></label>
+        <label id="ia-campo-api" hidden><span>API</span><select id="ia-api"></select></label>
+        <label id="ia-campo-url" hidden><span data-i18n="ia.url"></span><input id="ia-url" type="url" spellcheck="false"></label>
+        <label id="ia-campo-modelo"><span data-i18n="ia.modelo"></span><input id="ia-modelo" list="ia-modelos" spellcheck="false"><datalist id="ia-modelos"></datalist></label>
+        <label id="ia-campo-chave" hidden><span data-i18n="ia.chave"></span><input id="ia-chave" type="password" autocomplete="off" spellcheck="false"></label>
+        <label id="ia-campo-comando" hidden class="largo"><span data-i18n="ia.comando"></span><input id="ia-comando" spellcheck="false"></label>
+        <label><span data-i18n="ia.dias"></span><select id="ia-dias"><option value="7"></option><option value="14"></option><option value="30"></option></select></label>
+        <div class="ia-botoes">
+          <button id="ia-analisar" class="botao primario" data-i18n="ia.analisar"></button>
+          <a id="ia-ver-prompt" href="/api/ia/prompt" target="_blank" rel="noopener" data-i18n="ia.verPrompt"></a>
+        </div>
+      </div>
+      <p class="explica" id="ia-aviso"></p>
+      <div id="ia-status"></div>
+      <div id="ia-resultado"></div>
+    </div>
+    <div class="cartao largo">
+      <div class="cartao-topo"><h2 data-i18n="regras.titulo"></h2></div>
+      <p class="explica" data-i18n="regras.explica"></p>
+      <div id="lista-dicas"></div>
+    </div>
+  </section>
+
+  <section id="fontes" class="secao" hidden>
+    <div class="cartao largo" style="margin-bottom:16px">
+      <div class="cartao-topo"><h2 data-i18n="aj.limites"></h2></div>
+      <p class="explica" data-i18n="aj.limites.explica"></p>
+      <label class="check"><input type="checkbox" id="aj-limites-claude"> <span data-i18n="aj.limites.ligar"></span></label>
+    </div>
+    <div class="cartao largo" style="margin-bottom:16px">
+      <div class="cartao-topo"><h2 data-i18n="ass.titulo"></h2></div>
+      <p class="explica" data-i18n="ass.explica"></p>
+      <div id="assinaturas"></div>
+    </div>
+    <div class="cartao largo">
+      <div class="cartao-topo"><h2 data-i18n="fontes.titulo"></h2></div>
+      <div class="tabela-rolagem"><table id="t-fontes"></table></div>
+      <p class="explica" id="fontes-nota"></p>
+    </div>
+    <div class="cartao largo" style="margin-top:16px">
+      <div class="cartao-topo"><h2 data-i18n="precos.titulo"></h2><button id="btn-precos" class="botao" data-i18n="precos.atualizar"></button></div>
+      <p class="explica" data-i18n="precos.explica"></p>
+      <div id="precos-fontes"></div>
+      <h2 style="margin-top:18px" data-i18n="precos.porModelo"></h2>
+      <div class="tabela-rolagem"><table id="t-precos"></table></div>
+    </div>
+  </section>
+</main>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+{
+  "_readme": "Your own prices, in US$ per 1 million tokens. They win over everything else. Leave empty to use the public tables (LiteLLM, then OpenRouter) that the panel downloads weekly. Example: \"my-model\": {\"input\": 1.0, \"output\": 5.0, \"cache_read\": 0.1, \"cache_write\": 1.25}",
+  "modelos": {}
+}

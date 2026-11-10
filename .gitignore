@@ -1,0 +1,13 @@
+# Local data: your agent logs index, prices cache, limits history, AI analyses and settings
+.cache/
+# Code graph built locally by graphify
+graphify-out/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+*.spec
+.DS_Store
+Thumbs.db
