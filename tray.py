@@ -1,10 +1,10 @@
-"""Token Economy na bandeja do Windows.
+"""Token Economy in the Windows tray.
 
-- Mouse em cima: resumo do dia e dos limites.
-- Clique: abre o painel numa janela própria.
-- Botão direito: atualizar, iniciar com o Windows, sair.
+- Mouse over: summary of the day and of the limits.
+- Click: opens the panel in its own window.
+- Right click: refresh, start with Windows, quit.
 
-Rode com pythonw (sem janela de terminal):  pythonw tray.py
+Run it with pythonw (no terminal window):  pythonw tray.py
 """
 from __future__ import annotations
 
@@ -26,44 +26,45 @@ import pystray
 from PIL import Image, ImageDraw
 
 BASE = Path(__file__).resolve().parent
-PORTA = 8765
-URL = f"http://127.0.0.1:{PORTA}"
-NOME = "Token Economy"
+PORT = 8765
+URL = f"http://127.0.0.1:{PORT}"
+NAME = "Token Economy"
 LOG = BASE / ".cache" / "tray.log"
 CONFIG = BASE / ".cache" / "config.json"
 STARTUP_DIR = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
-STARTUP = STARTUP_DIR / f"{NOME}.vbs"
-STARTUP_ANTIGOS = [STARTUP_DIR / "Painel de tokens.vbs", STARTUP_DIR / "Token Panel.vbs"]  # nomes anteriores
+STARTUP = STARTUP_DIR / f"{NAME}.vbs"
+STARTUP_OLD = [STARTUP_DIR / "Painel de tokens.vbs", STARTUP_DIR / "Token Panel.vbs"]  # earlier names
 
 TXT = {
     "pt": {
-        "abrir": "Abrir painel", "atualizar": "Atualizar agora", "autostart": "Iniciar com o Windows", "sair": "Sair",
-        "lendo": "Lendo os registros…", "semLimite": "Sem leitura de limites", "sem": "sem",
-        "codex5h": "Codex 5h {p}% (zera {h}h{m}) · sem {s}%", "codexLivre": "Codex 5h livre · semana {s}%",
-        "hoje": "Hoje: {n} tokens novos", "semUso": "sem uso hoje", "rtk": "RTK poupou {n} hoje",
-        "mil": "mil", "mi": "mi", "bi": "bi", "dec": ",",
+        "open": "Abrir painel", "refresh": "Atualizar agora", "autostart": "Iniciar com o Windows", "quit": "Sair",
+        "reading": "Lendo os registros…", "noLimits": "Sem leitura de limites", "week": "sem",
+        "codex5h": "Codex 5h {p}% (zera {h}h{m}) · sem {s}%", "codexFree": "Codex 5h livre · semana {s}%",
+        "today": "Hoje: {n} tokens novos", "noUsage": "sem uso hoje", "rtk": "RTK poupou {n} hoje",
+        "thousand": "mil", "million": "mi", "billion": "bi", "dec": ",",
     },
     "en": {
-        "abrir": "Open panel", "atualizar": "Refresh now", "autostart": "Start with Windows", "sair": "Quit",
-        "lendo": "Reading logs…", "semLimite": "No limit readings", "sem": "wk",
-        "codex5h": "Codex 5h {p}% (resets {h}h{m}) · wk {s}%", "codexLivre": "Codex 5h free · week {s}%",
-        "hoje": "Today: {n} new tokens", "semUso": "no usage today", "rtk": "RTK saved {n} today",
-        "mil": "K", "mi": "M", "bi": "B", "dec": ".",
+        "open": "Open panel", "refresh": "Refresh now", "autostart": "Start with Windows", "quit": "Quit",
+        "reading": "Reading logs…", "noLimits": "No limit readings", "week": "wk",
+        "codex5h": "Codex 5h {p}% (resets {h}h{m}) · wk {s}%", "codexFree": "Codex 5h free · week {s}%",
+        "today": "Today: {n} new tokens", "noUsage": "no usage today", "rtk": "RTK saved {n} today",
+        "thousand": "K", "million": "M", "billion": "B", "dec": ".",
     },
     "es": {
-        "abrir": "Abrir panel", "atualizar": "Actualizar ahora", "autostart": "Iniciar con Windows", "sair": "Salir",
-        "lendo": "Leyendo registros…", "semLimite": "Sin lectura de límites", "sem": "sem",
-        "codex5h": "Codex 5h {p}% (reinicia {h}h{m}) · sem {s}%", "codexLivre": "Codex 5h libre · semana {s}%",
-        "hoje": "Hoy: {n} tokens nuevos", "semUso": "sin uso hoy", "rtk": "RTK ahorró {n} hoy",
-        "mil": "mil", "mi": "M", "bi": "mil M", "dec": ",",
+        "open": "Abrir panel", "refresh": "Actualizar ahora", "autostart": "Iniciar con Windows", "quit": "Salir",
+        "reading": "Leyendo registros…", "noLimits": "Sin lectura de límites", "week": "sem",
+        "codex5h": "Codex 5h {p}% (reinicia {h}h{m}) · sem {s}%", "codexFree": "Codex 5h libre · semana {s}%",
+        "today": "Hoy: {n} tokens nuevos", "noUsage": "sin uso hoy", "rtk": "RTK ahorró {n} hoy",
+        "thousand": "mil", "million": "M", "billion": "mil M", "dec": ",",
     },
 }
 
 
-def idioma() -> str:
-    """Língua escolhida no painel; na primeira vez, a do Windows."""
+def language() -> str:
+    """Language chosen in the panel; the first time, the Windows one."""
     try:
-        lang = json.loads(CONFIG.read_text(encoding="utf-8")).get("idioma")
+        cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
+        lang = cfg.get("language") or cfg.get("idioma")  # "idioma": key used before the English translation
         if lang in TXT:
             return lang
     except Exception:  # noqa: BLE001
@@ -75,16 +76,16 @@ def idioma() -> str:
         return "en"
 
 
-def tr(chave: str, **kw) -> str:
-    s = TXT[idioma()].get(chave) or TXT["en"][chave]
+def tr(key: str, **kw) -> str:
+    s = TXT[language()].get(key) or TXT["en"][key]
     return s.format(**kw) if kw else s
 
-CORES = {
-    "cinza": (122, 121, 116),
-    "verde": (12, 163, 12),
-    "amarelo": (214, 150, 0),
-    "laranja": (236, 131, 90),
-    "vermelho": (208, 59, 59),
+COLORS = {
+    "gray": (122, 121, 116),
+    "green": (12, 163, 12),
+    "yellow": (214, 150, 0),
+    "orange": (236, 131, 90),
+    "red": (208, 59, 59),
 }
 
 
@@ -98,137 +99,137 @@ def log(msg: str) -> None:
 
 
 # ----------------------------------------------------------------------------
-# instância única
+# single instance
 # ----------------------------------------------------------------------------
 
-def ja_rodando() -> bool:
+def already_running() -> bool:
     ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\TokenEconomyTray")
     return ctypes.windll.kernel32.GetLastError() == 183  # ERROR_ALREADY_EXISTS
 
 
 # ----------------------------------------------------------------------------
-# abrir o painel
+# opening the panel
 # ----------------------------------------------------------------------------
 
-def navegador_app() -> str | None:
-    candidatos = [
+def app_browser() -> str | None:
+    candidates = [
         os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
         os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
         os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
         os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
     ]
-    for c in candidatos:
+    for c in candidates:
         if os.path.exists(c):
             return c
     return shutil.which("msedge") or shutil.which("chrome")
 
 
-def abrir_painel(*_):
-    exe = navegador_app()
+def open_panel(*_):
+    exe = app_browser()
     try:
         if exe:
-            # modo app: janela própria, sem abas nem barra de endereço
+            # app mode: its own window, with no tabs or address bar
             subprocess.Popen([exe, f"--app={URL}", "--window-size=1440,920"], creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
             return
     except OSError as e:
-        log(f"falha ao abrir em modo app: {e}")
+        log(f"failed to open in app mode: {e}")
     webbrowser.open(URL)
 
 
 # ----------------------------------------------------------------------------
-# resumo
+# summary
 # ----------------------------------------------------------------------------
 
-def compacto(n: float) -> str:
+def compact(n: float) -> str:
     n = float(n or 0)
-    sep = " " if idioma() != "en" else ""
-    for div, chave, casas in ((1e9, "bi", 1), (1e6, "mi", 1), (1e3, "mil", 0)):
+    sep = " " if language() != "en" else ""
+    for div, key, places in ((1e9, "billion", 1), (1e6, "million", 1), (1e3, "thousand", 0)):
         if n >= div:
-            return f"{n / div:.{casas}f}".replace(".", tr("dec")) + sep + tr(chave)
+            return f"{n / div:.{places}f}".replace(".", tr("dec")) + sep + tr(key)
     return f"{n:.0f}"
 
 
-def novos(r: dict) -> float:
+def new_tokens(r: dict) -> float:
     return (r.get("input") or 0) + (r.get("cache_write") or 0) + (r.get("output") or 0)
 
 
-def resumo(d: dict) -> tuple[str, str, list[str]]:
-    """Devolve (texto do balão até 127 caracteres, cor do ícone, linhas para o menu)."""
-    agora = time.time()
-    hoje = dt.datetime.now().strftime("%Y-%m-%d")
-    nomes = d.get("agentes") or {}
+def summary(d: dict) -> tuple[str, str, list[str]]:
+    """Returns (tooltip text up to 127 characters, icon color, lines for the menu)."""
+    now = time.time()
+    today = dt.datetime.now().strftime("%Y-%m-%d")
+    names = d.get("agents") or {}
 
-    # limites: uma linha por agente com todas as janelas dele (Claude, Codex, …)
-    jans = (d.get("limites") or {}).get("janelas") or []
-    curtos_jan = {"five_hour": "5h", "seven_day": tr("sem"), "seven_day_opus": "Opus", "seven_day_sonnet": "Sonnet", "seven_day_fable": "Fable"}
-    por_agente: dict[str, list[str]] = {}
-    pior = 0.0
-    for j in jans:
+    # limits: one line per agent with all of its windows (Claude, Codex, …)
+    wins = (d.get("limits") or {}).get("windows") or []
+    short_win = {"five_hour": "5h", "seven_day": tr("week"), "seven_day_opus": "Opus", "seven_day_sonnet": "Sonnet", "seven_day_fable": "Fable"}
+    by_agent: dict[str, list[str]] = {}
+    worst = 0.0
+    for j in wins:
         pct = float(j.get("pct") or 0)
-        rotulo = curtos_jan.get(j["id"], j["id"].replace("seven_day_", "").replace("_", " "))
-        txt = f"{rotulo} {pct:.0f}%"
+        label = short_win.get(j["id"], j["id"].replace("seven_day_", "").replace("_", " "))
+        txt = f"{label} {pct:.0f}%"
         if j.get("reset") and j["id"] == "five_hour":
-            falta = max(0, j["reset"] - agora)
-            txt += f" ({int(falta // 3600)}h{int(falta % 3600 // 60):02d})"
-        por_agente.setdefault(j["agente"], []).append(txt)
-        # uma janela que vai acabar antes de zerar conta como pelo menos 70%
-        pior = max(pior, pct, 70.0 if j.get("acaba_antes") else 0.0)
-    nomes_ag = {"claude": "Claude", "codex": "Codex"}
-    l_lim = [f"{nomes_ag.get(a, a)}: " + " · ".join(v) for a, v in por_agente.items()] or [tr("semLimite")]
+            left = max(0, j["reset"] - now)
+            txt += f" ({int(left // 3600)}h{int(left % 3600 // 60):02d})"
+        by_agent.setdefault(j["agent"], []).append(txt)
+        # a window that will run out before it resets counts as at least 70%
+        worst = max(worst, pct, 70.0 if j.get("runs_out_before_reset") else 0.0)
+    agent_names = {"claude": "Claude", "codex": "Codex"}
+    limit_lines = [f"{agent_names.get(a, a)}: " + " · ".join(v) for a, v in by_agent.items()] or [tr("noLimits")]
 
-    # uso de hoje
-    por_ag: dict[str, float] = {}
-    for r in d.get("uso") or []:
-        if r["hora"].startswith(hoje):
-            por_ag[r["agente"]] = por_ag.get(r["agente"], 0) + novos(r)
-    total = sum(por_ag.values())
-    rtk_hoje = sum(r.get("saved") or 0 for r in (d.get("rtk") or {}).get("hora") or [] if r["hora"].startswith(hoje))
+    # today's usage
+    per_agent: dict[str, float] = {}
+    for r in d.get("usage") or []:
+        if r["hour"].startswith(today):
+            per_agent[r["agent"]] = per_agent.get(r["agent"], 0) + new_tokens(r)
+    total = sum(per_agent.values())
+    rtk_today = sum(r.get("saved") or 0 for r in (d.get("rtk") or {}).get("hourly") or [] if r["hour"].startswith(today))
 
-    # cor do ícone: a janela mais apertada de qualquer agente
-    if not jans:
-        cor = "cinza"
-    elif pior >= 90:
-        cor = "vermelho"
-    elif pior >= 70:
-        cor = "laranja"
-    elif pior >= 50:
-        cor = "amarelo"
+    # icon color: the tightest window of any agent
+    if not wins:
+        color = "gray"
+    elif worst >= 90:
+        color = "red"
+    elif worst >= 70:
+        color = "orange"
+    elif worst >= 50:
+        color = "yellow"
     else:
-        cor = "verde"
+        color = "green"
 
-    curtos = {"claude": "Claude", "codex": "Codex", "opencode": "OpenCode", "ollama": "Ollama", "desconhecido": "?"}
-    ordem = sorted(por_ag.items(), key=lambda x: -x[1])
-    partes = " · ".join(f"{curtos.get(a, a)} {100 * v / total:.0f}%" for a, v in ordem[:3] if total) or tr("semUso")
-    linhas = [*l_lim, tr("hoje", n=compacto(total)), partes, tr("rtk", n=compacto(rtk_hoje))]
-    # o Windows corta o texto do ícone em 127 caracteres: tira o título e depois as
-    # últimas linhas até caber (os limites, que vêm primeiro, ficam)
-    balao_linhas = [NOME, *linhas]
-    while len("\n".join(balao_linhas)) > 127 and len(balao_linhas) > 1:
-        balao_linhas.pop(0 if balao_linhas[0] == NOME else -1)
-    return "\n".join(balao_linhas)[:127], cor, linhas
+    short = {"claude": "Claude", "codex": "Codex", "opencode": "OpenCode", "ollama": "Ollama", "unknown": "?"}
+    order = sorted(per_agent.items(), key=lambda x: -x[1])
+    parts = " · ".join(f"{short.get(a, a)} {100 * v / total:.0f}%" for a, v in order[:3] if total) or tr("noUsage")
+    lines = [*limit_lines, tr("today", n=compact(total)), parts, tr("rtk", n=compact(rtk_today))]
+    # Windows cuts the icon text at 127 characters: drop the title and then the
+    # last lines until it fits (the limits, which come first, stay)
+    tip_lines = [NAME, *lines]
+    while len("\n".join(tip_lines)) > 127 and len(tip_lines) > 1:
+        tip_lines.pop(0 if tip_lines[0] == NAME else -1)
+    return "\n".join(tip_lines)[:127], color, lines
 
 
 # ----------------------------------------------------------------------------
-# ícone
+# icon
 # ----------------------------------------------------------------------------
 
-def desenhar_icone(cor: str) -> Image.Image:
-    """Mesmo desenho do logo (moeda com barras descendo), na cor do status dos limites."""
-    s = 256  # desenha grande e reduz, para as bordas ficarem suaves
+def draw_icon(color: str) -> Image.Image:
+    """Same drawing as the logo (coin with descending bars), in the color of the limits status."""
+    s = 256  # draws large and scales down, so the edges are smooth
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     dr = ImageDraw.Draw(img)
-    dr.ellipse((8, 8, s - 8, s - 8), fill=CORES[cor] + (255,))
+    dr.ellipse((8, 8, s - 8, s - 8), fill=COLORS[color] + (255,))
     dr.ellipse((34, 34, s - 34, s - 34), outline=(255, 255, 255, 110), width=8)
-    larg, gap, base = 34, 16, 186
-    x0 = (s - (3 * larg + 2 * gap)) // 2
+    width, gap, base = 34, 16, 186
+    x0 = (s - (3 * width + 2 * gap)) // 2
     for i, h in enumerate((112, 84, 56)):
-        x = x0 + i * (larg + gap)
-        dr.rounded_rectangle((x, base - h, x + larg, base), radius=larg // 2, fill=(255, 255, 255, 255))
+        x = x0 + i * (width + gap)
+        dr.rounded_rectangle((x, base - h, x + width, base), radius=width // 2, fill=(255, 255, 255, 255))
     return img.resize((64, 64), Image.LANCZOS)
 
 
 # ----------------------------------------------------------------------------
-# iniciar com o Windows
+# start with Windows
 # ----------------------------------------------------------------------------
 
 def pythonw() -> str:
@@ -237,15 +238,15 @@ def pythonw() -> str:
     return str(w if w.exists() else exe)
 
 
-def autostart_ativo(*_) -> bool:
+def autostart_enabled(*_) -> bool:
     return STARTUP.exists()
 
 
-def alternar_autostart(icon, _item):
+def toggle_autostart(icon, _item):
     try:
-        for antigo in STARTUP_ANTIGOS:
-            if antigo.exists():
-                antigo.unlink()
+        for old in STARTUP_OLD:
+            if old.exists():
+                old.unlink()
         if STARTUP.exists():
             STARTUP.unlink()
         else:
@@ -268,104 +269,104 @@ def alternar_autostart(icon, _item):
 
 class App:
     def __init__(self):
-        self.linhas = [tr("lendo")]
-        self.cor = "cinza"
-        self.dados = None
-        self.lang = idioma()
+        self.lines = [tr("reading")]
+        self.color = "gray"
+        self.data = None
+        self.lang = language()
         self.icon = pystray.Icon(
             "token-economy",
-            icon=desenhar_icone("cinza"),
-            title=f"{NOME}\n{tr('lendo')}",
+            icon=draw_icon("gray"),
+            title=f"{NAME}\n{tr('reading')}",
             menu=self.menu(),
         )
 
     def menu(self):
-        def linha(i):
-            return pystray.MenuItem(lambda _: self.linhas[i] if i < len(self.linhas) else "", None, enabled=False,
-                                    visible=lambda _: i < len(self.linhas))
+        def line(i):
+            return pystray.MenuItem(lambda _: self.lines[i] if i < len(self.lines) else "", None, enabled=False,
+                                    visible=lambda _: i < len(self.lines))
 
-        # textos como funções: o menu acompanha a troca de idioma sem reiniciar
+        # texts as functions: the menu follows a language change without restarting
         return pystray.Menu(
-            pystray.MenuItem(lambda _: tr("abrir"), abrir_painel, default=True),
+            pystray.MenuItem(lambda _: tr("open"), open_panel, default=True),
             pystray.Menu.SEPARATOR,
-            *[linha(i) for i in range(6)],
+            *[line(i) for i in range(6)],
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem(lambda _: tr("atualizar"), self.atualizar_agora),
-            pystray.MenuItem(lambda _: tr("autostart"), alternar_autostart, checked=autostart_ativo),
-            pystray.MenuItem(lambda _: tr("sair"), self.sair),
+            pystray.MenuItem(lambda _: tr("refresh"), self.refresh_now),
+            pystray.MenuItem(lambda _: tr("autostart"), toggle_autostart, checked=autostart_enabled),
+            pystray.MenuItem(lambda _: tr("quit"), self.quit),
         )
 
-    def aplicar(self, d: dict):
+    def apply(self, d: dict):
         try:
-            balao, cor, linhas = resumo(d)
-            self.linhas = linhas
-            self.icon.title = balao
-            if cor != self.cor:
-                self.cor = cor
-                self.icon.icon = desenhar_icone(cor)
+            tip, color, lines = summary(d)
+            self.lines = lines
+            self.icon.title = tip
+            if color != self.color:
+                self.color = color
+                self.icon.icon = draw_icon(color)
             self.icon.update_menu()
         except Exception:  # noqa: BLE001
             log(traceback.format_exc())
 
-    def buscar(self) -> dict | None:
+    def fetch(self) -> dict | None:
         try:
-            with urllib.request.urlopen(URL + "/api/dados", timeout=20) as r:
+            with urllib.request.urlopen(URL + "/api/data", timeout=20) as r:
                 if r.status == 200:
                     return json.loads(r.read().decode("utf-8"))
         except Exception:  # noqa: BLE001
             return None
         return None
 
-    def laco(self):
-        ultimo, proxima_busca = 0, 0.0
+    def loop(self):
+        last, next_fetch = 0, 0.0
         while True:
-            agora = time.time()
-            if agora >= proxima_busca:
-                d = self.buscar()
-                if d and d.get("gerado_em", 0) > ultimo:
-                    ultimo = d["gerado_em"]
-                    self.dados = d
-                    self.aplicar(d)
-                proxima_busca = agora + (30 if d else 5)
-            # trocou o idioma no painel: refaz o texto na hora
-            lang = idioma()
+            now = time.time()
+            if now >= next_fetch:
+                d = self.fetch()
+                if d and d.get("generated_at", 0) > last:
+                    last = d["generated_at"]
+                    self.data = d
+                    self.apply(d)
+                next_fetch = now + (30 if d else 5)
+            # the language was changed in the panel: redo the text right away
+            lang = language()
             if lang != self.lang:
                 self.lang = lang
-                if self.dados:
-                    self.aplicar(self.dados)
+                if self.data:
+                    self.apply(self.data)
                 else:
-                    self.icon.title = f"{NOME}\n{tr('lendo')}"
-                    self.linhas = [tr("lendo")]
+                    self.icon.title = f"{NAME}\n{tr('reading')}"
+                    self.lines = [tr("reading")]
                     self.icon.update_menu()
             time.sleep(3)
 
-    def atualizar_agora(self, *_):
+    def refresh_now(self, *_):
         try:
-            urllib.request.urlopen(urllib.request.Request(URL + "/api/atualizar", method="POST", headers={"X-Token-Panel": "1"}), timeout=5).close()
+            urllib.request.urlopen(urllib.request.Request(URL + "/api/refresh", method="POST", headers={"X-Token-Panel": "1"}), timeout=5).close()
         except Exception:  # noqa: BLE001
             pass
 
-    def sair(self, *_):
+    def quit(self, *_):
         self.icon.stop()
 
-    def rodar(self):
-        threading.Thread(target=self.laco, daemon=True).start()
+    def run(self):
+        threading.Thread(target=self.loop, daemon=True).start()
         self.icon.run()
 
 
 def main():
     os.chdir(BASE)
-    if ja_rodando():
-        abrir_painel()
+    if already_running():
+        open_panel()
         return
     try:
         import server
 
-        server.iniciar(PORTA, 60)
+        server.start(PORT, 60)
     except OSError:
-        # porta ocupada: provavelmente o server.py já está rodando sozinho; usa ele
-        log("porta ocupada, usando o servidor que já está no ar")
-    App().rodar()
+        # port in use: server.py is probably already running on its own; use it
+        log("port in use, using the server that is already running")
+    App().run()
 
 
 if __name__ == "__main__":

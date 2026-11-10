@@ -1,12 +1,12 @@
 {
-  "_readme": "Token-saving tools Token Economy can detect. Only tools found on the user's machine are shown. 'deteccao' lists the signals: exes (on PATH), hooks (word in an agent hook command), mcp (MCP server name registered in an agent), mcp_comando (word in the MCP server command), uso_mcp (MCP server name as it appears in agent logs, mcp__<name>__tool), skills, plugins, pastas (data paths; ~, %APPDATA%, %LOCALAPPDATA%, $XDG_* are expanded), proxy (text in an agent base URL) and projeto (files inside a project folder that show the tool was set up there). 'medicao' names the reader in economia.py, or null when the tool records no savings. Every entry was checked against the tool's own source code; add new tools with a pull request.",
-  "ferramentas": [
+  "_readme": "Token-saving tools Token Economy can detect. Only tools found on the user's machine are shown. 'detection' lists the signals: exes (on PATH), hooks (word in an agent hook command), mcp (MCP server name registered in an agent), mcp_command (word in the MCP server command), mcp_usage (MCP server name as it appears in agent logs, mcp__<name>__tool), skills, plugins, paths (data paths; ~, %APPDATA%, %LOCALAPPDATA%, $XDG_* are expanded), proxy (text in an agent base URL) and project (files inside a project folder that show the tool was set up there). 'measurement' names the reader in savings.py, or null when the tool records no savings. Every entry was checked against the tool's own source code; add new tools with a pull request.",
+  "tools": [
     {
       "id": "rtk",
-      "nome": "RTK",
+      "name": "RTK",
       "url": "https://github.com/rtk-ai/rtk",
-      "categoria": "saida_comandos",
-      "deteccao": {
+      "category": "command_output",
+      "detection": {
         "exes": [
           "rtk"
         ],
@@ -16,39 +16,39 @@
         "plugins": [
           "rtk"
         ],
-        "pastas": [
+        "paths": [
           "%LOCALAPPDATA%/rtk/history.db",
           "$XDG_DATA_HOME/rtk/history.db",
           "~/Library/Application Support/rtk/history.db"
         ]
       },
-      "medicao": "rtk"
+      "measurement": "rtk"
     },
     {
       "id": "headroom",
-      "nome": "Headroom",
+      "name": "Headroom",
       "url": "https://github.com/headroomlabs-ai/headroom",
-      "categoria": "proxy",
-      "deteccao": {
+      "category": "proxy",
+      "detection": {
         "exes": [
           "headroom"
         ],
         "mcp": [
           "headroom"
         ],
-        "pastas": [
+        "paths": [
           "~/.headroom/savings_events.jsonl",
           "~/.headroom/proxy_savings.json"
         ]
       },
-      "medicao": "headroom"
+      "measurement": "headroom"
     },
     {
       "id": "token-saver",
-      "nome": "token-saver",
+      "name": "token-saver",
       "url": "https://github.com/ppgranger/token-saver",
-      "categoria": "saida_comandos",
-      "deteccao": {
+      "category": "command_output",
+      "detection": {
         "exes": [
           "token-saver"
         ],
@@ -58,20 +58,20 @@
         "plugins": [
           "token-saver"
         ],
-        "pastas": [
+        "paths": [
           "%APPDATA%/token-saver/savings.db",
           "~/.token-saver/savings.db",
           "~/.claude/plugins/cache/token-saver-marketplace"
         ]
       },
-      "medicao": "token_saver"
+      "measurement": "token_saver"
     },
     {
       "id": "squeez",
-      "nome": "squeez",
+      "name": "squeez",
       "url": "https://github.com/claudioemmanuel/squeez",
-      "categoria": "saida_comandos",
-      "deteccao": {
+      "category": "command_output",
+      "detection": {
         "exes": [
           "squeez"
         ],
@@ -84,21 +84,21 @@
         "plugins": [
           "squeez"
         ],
-        "pastas": [
+        "paths": [
           "~/.claude/squeez",
           "~/.codex/squeez",
           "~/.gemini/squeez",
           "~/.copilot/squeez"
         ]
       },
-      "medicao": "squeez"
+      "measurement": "squeez"
     },
     {
       "id": "context-mode",
-      "nome": "Context Mode",
+      "name": "Context Mode",
       "url": "https://github.com/mksglu/context-mode",
-      "categoria": "saida_comandos",
-      "deteccao": {
+      "category": "command_output",
+      "detection": {
         "exes": [
           "context-mode"
         ],
@@ -112,23 +112,23 @@
           "context-mode",
           "context_mode"
         ],
-        "uso_mcp": [
+        "mcp_usage": [
           "plugin_context-mode_context-mode",
           "context_mode",
           "context-mode"
         ],
-        "pastas": [
+        "paths": [
           "~/.context-mode/projects"
         ]
       },
-      "medicao": "context_mode"
+      "measurement": "context_mode"
     },
     {
       "id": "lean-ctx",
-      "nome": "lean-ctx",
+      "name": "lean-ctx",
       "url": "https://github.com/yvgude/lean-ctx",
-      "categoria": "saida_comandos",
-      "deteccao": {
+      "category": "command_output",
+      "detection": {
         "exes": [
           "lean-ctx"
         ],
@@ -139,27 +139,27 @@
           "lean-ctx",
           "lean_ctx"
         ],
-        "mcp_comando": [
+        "mcp_command": [
           "lean-ctx"
         ],
-        "pastas": [
+        "paths": [
           "~/.local/state/lean-ctx/stats.json",
           "~/.lean-ctx/stats.json",
           "%LOCALAPPDATA%/lean-ctx/stats.json",
           "%APPDATA%/lean-ctx/stats.json"
         ],
-        "projeto": [
+        "project": [
           ".lean-ctx.toml"
         ]
       },
-      "medicao": "lean_ctx"
+      "measurement": "lean_ctx"
     },
     {
       "id": "token-optimizer",
-      "nome": "Token Optimizer",
+      "name": "Token Optimizer",
       "url": "https://github.com/alexgreensh/token-optimizer",
-      "categoria": "saida_comandos",
-      "deteccao": {
+      "category": "command_output",
+      "detection": {
         "plugins": [
           "token-optimizer",
           "token-optimizer-opencode"
@@ -167,20 +167,20 @@
         "hooks": [
           "token-optimizer"
         ],
-        "pastas": [
+        "paths": [
           "~/.claude/token-optimizer.json",
           "~/.claude/token-optimizer",
           "~/.claude/_backups/token-optimizer/trends.db"
         ]
       },
-      "medicao": "token_optimizer"
+      "measurement": "token_optimizer"
     },
     {
       "id": "caveman",
-      "nome": "Caveman",
+      "name": "Caveman",
       "url": "https://github.com/JuliusBrussee/caveman",
-      "categoria": "estilo_resposta",
-      "deteccao": {
+      "category": "response_style",
+      "detection": {
         "exes": [
           "caveman",
           "caveman-proxy"
@@ -198,37 +198,37 @@
           "/w/gemini",
           "caveman"
         ],
-        "pastas": [
+        "paths": [
           "~/.caveman",
           "~/.claude/.caveman-active"
         ]
       },
-      "medicao": "caveman"
+      "measurement": "caveman"
     },
     {
       "id": "kompact",
-      "nome": "Kompact",
+      "name": "Kompact",
       "url": "https://github.com/npow/kompact",
-      "categoria": "proxy",
-      "deteccao": {
+      "category": "proxy",
+      "detection": {
         "exes": [
           "kompact"
         ],
         "proxy": [
           ":7878"
         ],
-        "pastas": [
+        "paths": [
           "~/.kompact"
         ]
       },
-      "medicao": "kompact"
+      "measurement": "kompact"
     },
     {
       "id": "code-context-engine",
-      "nome": "Code Context Engine",
+      "name": "Code Context Engine",
       "url": "https://github.com/elara-labs/code-context-engine",
-      "categoria": "indice_codigo",
-      "deteccao": {
+      "category": "code_index",
+      "detection": {
         "exes": [
           "cce",
           "code-context-engine"
@@ -236,52 +236,52 @@
         "mcp": [
           "context-engine"
         ],
-        "mcp_comando": [
+        "mcp_command": [
           "cce",
           "code-context-engine"
         ],
-        "uso_mcp": [
+        "mcp_usage": [
           "context-engine"
         ],
-        "pastas": [
+        "paths": [
           "~/.cce/projects"
         ],
-        "projeto": [
+        "project": [
           ".context-engine.yaml"
         ]
       },
-      "medicao": "cce"
+      "measurement": "cce"
     },
     {
       "id": "jcodemunch",
-      "nome": "jCodeMunch",
+      "name": "jCodeMunch",
       "url": "https://github.com/jgravelle/jcodemunch-mcp",
-      "categoria": "indice_codigo",
-      "deteccao": {
+      "category": "code_index",
+      "detection": {
         "exes": [
           "jcodemunch-mcp"
         ],
         "mcp": [
           "jcodemunch"
         ],
-        "mcp_comando": [
+        "mcp_command": [
           "jcodemunch-mcp"
         ],
-        "pastas": [
+        "paths": [
           "~/.code-index/_savings.json"
         ],
-        "projeto": [
+        "project": [
           ".jcodemunch.jsonc"
         ]
       },
-      "medicao": "jcodemunch"
+      "measurement": "jcodemunch"
     },
     {
       "id": "graphify",
-      "nome": "Graphify",
+      "name": "Graphify",
       "url": "https://github.com/safishamsi/graphify",
-      "categoria": "indice_codigo",
-      "deteccao": {
+      "category": "code_index",
+      "detection": {
         "exes": [
           "graphify",
           "graphify-mcp"
@@ -295,18 +295,18 @@
         "mcp": [
           "graphify"
         ],
-        "projeto": [
+        "project": [
           "graphify-out/graph.json"
         ]
       },
-      "medicao": null
+      "measurement": null
     },
     {
       "id": "serena",
-      "nome": "Serena",
+      "name": "Serena",
       "url": "https://github.com/oraios/serena",
-      "categoria": "indice_codigo",
-      "deteccao": {
+      "category": "code_index",
+      "detection": {
         "exes": [
           "serena",
           "serena-agent"
@@ -314,92 +314,92 @@
         "mcp": [
           "serena"
         ],
-        "mcp_comando": [
+        "mcp_command": [
           "serena",
           "serena-agent"
         ],
-        "pastas": [
+        "paths": [
           "~/.serena/serena_config.yml"
         ],
-        "projeto": [
+        "project": [
           ".serena/project.yml"
         ]
       },
-      "medicao": null
+      "measurement": null
     },
     {
       "id": "codegraph",
-      "nome": "CodeGraph",
+      "name": "CodeGraph",
       "url": "https://github.com/colbymchenry/codegraph",
-      "categoria": "indice_codigo",
-      "deteccao": {
+      "category": "code_index",
+      "detection": {
         "exes": [
           "codegraph"
         ],
         "mcp": [
           "codegraph"
         ],
-        "mcp_comando": [
+        "mcp_command": [
           "codegraph"
         ],
-        "pastas": [
+        "paths": [
           "~/.codegraph"
         ],
-        "projeto": [
+        "project": [
           ".codegraph/codegraph.db"
         ]
       },
-      "medicao": null
+      "measurement": null
     },
     {
       "id": "codebase-memory-mcp",
-      "nome": "codebase-memory-mcp",
+      "name": "codebase-memory-mcp",
       "url": "https://github.com/DeusData/codebase-memory-mcp",
-      "categoria": "indice_codigo",
-      "deteccao": {
+      "category": "code_index",
+      "detection": {
         "exes": [
           "codebase-memory-mcp"
         ],
         "mcp": [
           "codebase-memory-mcp"
         ],
-        "mcp_comando": [
+        "mcp_command": [
           "codebase-memory-mcp"
         ],
-        "pastas": [
+        "paths": [
           "~/.cache/codebase-memory-mcp"
         ],
-        "projeto": [
+        "project": [
           ".codebase-memory",
           ".codebase-memory.json"
         ]
       },
-      "medicao": null
+      "measurement": null
     },
     {
       "id": "claude-context",
-      "nome": "Claude Context (Zilliz)",
+      "name": "Claude Context (Zilliz)",
       "url": "https://github.com/zilliztech/claude-context",
-      "categoria": "indice_codigo",
-      "deteccao": {
+      "category": "code_index",
+      "detection": {
         "mcp": [
           "claude-context"
         ],
-        "mcp_comando": [
+        "mcp_command": [
           "@zilliz/claude-context-mcp"
         ],
-        "pastas": [
+        "paths": [
           "~/.context/mcp-codebase-snapshot.json"
         ]
       },
-      "medicao": null
+      "measurement": null
     },
     {
       "id": "token-reducer",
-      "nome": "Token Reducer",
+      "name": "Token Reducer",
       "url": "https://github.com/Madhan230205/token-reducer",
-      "categoria": "indice_codigo",
-      "deteccao": {
+      "category": "code_index",
+      "detection": {
         "exes": [
           "token-reducer"
         ],
@@ -410,51 +410,51 @@
         "hooks": [
           "userprompt_guard.py"
         ],
-        "pastas": [
+        "paths": [
           "~/.claude/plugins/token-reducer"
         ],
-        "projeto": [
+        "project": [
           ".cache/token-reducer/index.db"
         ]
       },
-      "medicao": null
+      "measurement": null
     },
     {
       "id": "claude-mem",
-      "nome": "claude-mem",
+      "name": "claude-mem",
       "url": "https://github.com/thedotmack/claude-mem",
-      "categoria": "memoria",
-      "deteccao": {
+      "category": "memory",
+      "detection": {
         "exes": [
           "claude-mem"
         ],
         "plugins": [
           "claude-mem"
         ],
-        "uso_mcp": [
+        "mcp_usage": [
           "plugin_claude-mem_mcp-search",
           "mcp-search"
         ],
-        "pastas": [
+        "paths": [
           "~/.claude-mem/claude-mem.db"
         ]
       },
-      "medicao": null
+      "measurement": null
     },
     {
       "id": "tokeneconomizer",
-      "nome": "TokenEconomizer",
+      "name": "TokenEconomizer",
       "url": "https://github.com/microsoft/TokenEconomizer",
-      "categoria": "memoria",
-      "deteccao": {
+      "category": "memory",
+      "detection": {
         "plugins": [
           "tokeneconomizer"
         ],
-        "pastas": [
+        "paths": [
           "~/.tokeneconomizer"
         ]
       },
-      "medicao": null
+      "measurement": null
     }
   ]
 }

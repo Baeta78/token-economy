@@ -9,268 +9,268 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
-<header class="topo">
-  <div class="marca">
+<header class="topbar">
+  <div class="brand">
     <img src="logo.svg" alt="" class="logo" width="30" height="30">
     <h1 data-i18n="app">Token Economy</h1>
-    <span id="atualizado" class="mudo"></span>
+    <span id="updated" class="muted"></span>
   </div>
-  <div class="controles">
-    <div class="segmentado" id="periodo" role="group" data-i18n-aria="periodo.label">
-      <button data-p="hoje" data-i18n="periodo.hoje"></button>
-      <button data-p="24h" data-i18n="periodo.24h"></button>
-      <button data-p="7d" data-i18n="periodo.7d" class="ativo"></button>
-      <button data-p="30d" data-i18n="periodo.30d"></button>
-      <button data-p="tudo" data-i18n="periodo.tudo"></button>
+  <div class="controls">
+    <div class="segmented" id="period" role="group" data-i18n-aria="period.label">
+      <button data-p="today" data-i18n="period.today"></button>
+      <button data-p="24h" data-i18n="period.24h"></button>
+      <button data-p="7d" data-i18n="period.7d" class="active"></button>
+      <button data-p="30d" data-i18n="period.30d"></button>
+      <button data-p="all" data-i18n="period.all"></button>
     </div>
-    <div class="segmentado" id="unidade" role="group" data-i18n-aria="unidade.label" data-i18n-title="unidade.dica">
-      <button data-u="tokens" data-i18n="unidade.tokens"></button>
-      <button data-u="usd" data-i18n="unidade.usd"></button>
+    <div class="segmented" id="unit" role="group" data-i18n-aria="unit.label" data-i18n-title="unit.hint">
+      <button data-u="tokens" data-i18n="unit.tokens"></button>
+      <button data-u="usd" data-i18n="unit.usd"></button>
     </div>
-    <div class="chips" id="filtro-agentes"></div>
-    <button id="btn-atualizar" class="botao" data-i18n="btn.atualizar" data-i18n-title="btn.atualizar.dica"></button>
-    <label class="seletor-idioma">
-      <span class="sr" data-i18n="idioma"></span>
-      <select id="idioma" data-i18n-title="idioma"></select>
+    <div class="chips" id="agent-filter"></div>
+    <button id="btn-refresh" class="btn" data-i18n="btn.refresh" data-i18n-title="btn.refresh.hint"></button>
+    <label class="language-picker">
+      <span class="sr" data-i18n="language"></span>
+      <select id="language" data-i18n-title="language"></select>
     </label>
-    <button id="btn-tema" class="botao icone" data-i18n-title="btn.tema" data-i18n-aria="btn.tema">◐</button>
+    <button id="btn-theme" class="btn icon" data-i18n-title="btn.theme" data-i18n-aria="btn.theme">◐</button>
   </div>
 </header>
 
-<nav class="abas" id="abas">
-  <a href="#resumo" class="ativo" data-i18n="aba.resumo"></a>
-  <a href="#visao" data-i18n="aba.visao"></a>
-  <a href="#limites" data-i18n="aba.limites"></a>
-  <a href="#modelos" data-i18n="aba.modelos"></a>
-  <a href="#economia" data-i18n="aba.economia"></a>
-  <a href="#projetos" data-i18n="aba.projetos"></a>
-  <a href="#ferramentas" data-i18n="aba.ferramentas"></a>
-  <a href="#dicas" data-i18n="aba.dicas"></a>
-  <a href="#fontes" data-i18n="aba.fontes"></a>
+<nav class="tabs" id="tabs">
+  <a href="#summary" class="active" data-i18n="tab.summary"></a>
+  <a href="#overview" data-i18n="tab.overview"></a>
+  <a href="#limits" data-i18n="tab.limits"></a>
+  <a href="#models" data-i18n="tab.models"></a>
+  <a href="#savings" data-i18n="tab.savings"></a>
+  <a href="#projects" data-i18n="tab.projects"></a>
+  <a href="#tools" data-i18n="tab.tools"></a>
+  <a href="#tips" data-i18n="tab.tips"></a>
+  <a href="#sources" data-i18n="tab.sources"></a>
 </nav>
 
-<main id="conteudo">
-  <div id="carregando" class="carregando">
+<main id="content">
+  <div id="loading" class="loading">
     <div class="spinner"></div>
-    <p id="carregando-status" data-i18n="carregando.titulo"></p>
-    <p class="mudo" data-i18n="carregando.sub"></p>
+    <p id="loading-status" data-i18n="loading.title"></p>
+    <p class="muted" data-i18n="loading.sub"></p>
   </div>
 
-  <section id="resumo" class="secao" hidden>
-    <div class="grade g3 resumo-topo">
-      <div class="cartao">
-        <div class="cartao-topo"><h2 data-i18n="resumo.nota"></h2></div>
-        <div id="resumo-nota"></div>
+  <section id="summary" class="section" hidden>
+    <div class="grid g3 summary-top">
+      <div class="card">
+        <div class="card-head"><h2 data-i18n="summary.score"></h2></div>
+        <div id="summary-score"></div>
       </div>
-      <div class="cartao">
-        <div class="cartao-topo"><h2 data-i18n="resumo.valor"></h2></div>
-        <div id="resumo-valor"></div>
+      <div class="card">
+        <div class="card-head"><h2 data-i18n="summary.value"></h2></div>
+        <div id="summary-value"></div>
       </div>
-      <div class="cartao">
-        <div class="cartao-topo"><h2 data-i18n="resumo.limites"></h2></div>
-        <div id="resumo-limites"></div>
+      <div class="card">
+        <div class="card-head"><h2 data-i18n="summary.limits"></h2></div>
+        <div id="summary-limits"></div>
       </div>
     </div>
-    <div class="grade g2">
-      <div class="cartao">
-        <div class="cartao-topo"><h2 data-i18n="resumo.pizza"></h2></div>
-        <div class="grafico"><canvas id="g-pizza"></canvas></div>
+    <div class="grid g2">
+      <div class="card">
+        <div class="card-head"><h2 data-i18n="summary.pie"></h2></div>
+        <div class="chart"><canvas id="g-pie"></canvas></div>
       </div>
-      <div class="cartao">
-        <div class="cartao-topo"><h2 data-i18n="resumo.dias"></h2></div>
-        <div class="grafico"><canvas id="g-resumo-dias"></canvas></div>
+      <div class="card">
+        <div class="card-head"><h2 data-i18n="summary.days"></h2></div>
+        <div class="chart"><canvas id="g-summary-days"></canvas></div>
       </div>
-      <div class="cartao largo">
-        <div class="cartao-topo"><h2 data-i18n="resumo.insights"></h2><a href="#dicas" class="link" data-i18n="resumo.insights.ver"></a></div>
-        <div id="resumo-insights"></div>
+      <div class="card wide">
+        <div class="card-head"><h2 data-i18n="summary.insights"></h2><a href="#tips" class="link" data-i18n="summary.insights.view"></a></div>
+        <div id="summary-insights"></div>
       </div>
     </div>
   </section>
 
-  <section id="visao" class="secao" hidden>
+  <section id="overview" class="section" hidden>
     <div class="kpis" id="kpis"></div>
-    <div class="grade g2">
-      <div class="cartao largo">
-        <div class="cartao-topo"><h2 id="tit-diario"></h2><span class="mudo" id="sub-diario"></span></div>
-        <p class="explica" id="exp-diario"></p>
-        <div class="grafico alto"><canvas id="g-diario"></canvas></div>
+    <div class="grid g2">
+      <div class="card wide">
+        <div class="card-head"><h2 id="title-daily"></h2><span class="muted" id="sub-daily"></span></div>
+        <p class="explain" id="exp-daily"></p>
+        <div class="chart tall"><canvas id="g-daily"></canvas></div>
       </div>
-      <div class="cartao">
-        <div class="cartao-topo"><h2 data-i18n="visao.consome"></h2></div>
-        <p class="explica" id="exp-consome"></p>
-        <div id="participacao"></div>
+      <div class="card">
+        <div class="card-head"><h2 data-i18n="overview.consumes"></h2></div>
+        <p class="explain" id="exp-consumes"></p>
+        <div id="share"></div>
       </div>
-      <div class="cartao">
-        <div class="cartao-topo"><h2 data-i18n="visao.economiza"></h2></div>
-        <p class="explica" id="exp-economiza"></p>
-        <div id="economia-agente"></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="limites" class="secao" hidden>
-    <div class="cartao largo" style="margin-bottom:16px">
-      <div class="cartao-topo"><h2 data-i18n="jan.titulo"></h2></div>
-      <p class="explica" data-i18n="jan.explica"></p>
-      <div id="lim-janelas"></div>
-    </div>
-    <div class="grade g2">
-      <div class="cartao largo">
-        <div class="cartao-topo"><h2 data-i18n="lim.historico"></h2></div>
-        <p class="explica" data-i18n="lim.grafico.explica"></p>
-        <div class="grafico"><canvas id="g-codex-limite"></canvas></div>
-        <h2 style="margin-top:18px" data-i18n="lim.janelas"></h2>
-        <div class="tabela-rolagem"><table id="t-janelas"></table></div>
-      </div>
-      <div class="cartao largo">
-        <div class="cartao-topo"><h2 data-i18n="lim.ult5h"></h2></div>
-        <p class="explica" data-i18n="lim.ult5h.explica"></p>
-        <div id="ultimas-5h"></div>
+      <div class="card">
+        <div class="card-head"><h2 data-i18n="overview.saves"></h2></div>
+        <p class="explain" id="exp-saves"></p>
+        <div id="savings-by-agent"></div>
       </div>
     </div>
   </section>
 
-  <section id="modelos" class="secao" hidden>
-    <div class="grade g2">
-      <div class="cartao largo">
-        <div class="cartao-topo"><h2 data-i18n="mod.tabela"></h2></div>
-        <p class="explica" data-i18n="mod.tabela.explica"></p>
-        <div class="tabela-rolagem"><table id="t-modelos"></table></div>
+  <section id="limits" class="section" hidden>
+    <div class="card wide" style="margin-bottom:16px">
+      <div class="card-head"><h2 data-i18n="win.title"></h2></div>
+      <p class="explain" data-i18n="win.explain"></p>
+      <div id="lim-windows"></div>
+    </div>
+    <div class="grid g2">
+      <div class="card wide">
+        <div class="card-head"><h2 data-i18n="lim.history"></h2></div>
+        <p class="explain" data-i18n="lim.chart.explain"></p>
+        <div class="chart"><canvas id="g-codex-limit"></canvas></div>
+        <h2 style="margin-top:18px" data-i18n="lim.windows"></h2>
+        <div class="table-scroll"><table id="t-windows"></table></div>
       </div>
-      <div class="cartao largo">
-        <div class="cartao-topo"><h2 data-i18n="mod.porHora"></h2></div>
-        <div class="grafico"><canvas id="g-hora"></canvas></div>
-      </div>
-      <div class="cartao">
-        <div class="cartao-topo"><h2 data-i18n="mod.composicao"></h2></div>
-        <p class="explica" data-i18n="mod.composicao.explica"></p>
-        <div class="grafico"><canvas id="g-composicao"></canvas></div>
-      </div>
-      <div class="cartao">
-        <div class="cartao-topo"><h2 data-i18n="mod.horario"></h2></div>
-        <p class="explica" data-i18n="mod.horario.explica"></p>
-        <div class="grafico"><canvas id="g-horadia"></canvas></div>
+      <div class="card wide">
+        <div class="card-head"><h2 data-i18n="lim.last5h"></h2></div>
+        <p class="explain" data-i18n="lim.last5h.explain"></p>
+        <div id="last-5h"></div>
       </div>
     </div>
   </section>
 
-  <section id="economia" class="secao" hidden>
-    <div class="kpis" id="kpis-economia"></div>
-    <div class="cartao largo" style="margin-bottom:16px">
-      <div class="cartao-topo"><h2 data-i18n="eco.minhas"></h2></div>
-      <p class="explica" data-i18n="eco.minhas.explica"></p>
-      <div id="eco-ferramentas" class="grade g3" style="margin:0"></div>
-    </div>
-    <div class="cartao largo" id="bloco-eco-projetos" style="margin-bottom:16px" hidden>
-      <div class="cartao-topo"><h2 data-i18n="eco.proj"></h2></div>
-      <p class="explica" data-i18n="eco.proj.explica"></p>
-      <div class="tabela-rolagem"><table id="t-eco-projetos"></table></div>
-    </div>
-    <div class="grade g2">
-      <div class="cartao largo" id="bloco-eco-dia">
-        <div class="cartao-topo"><h2 id="tit-eco-dia"></h2></div>
-        <div class="grafico"><canvas id="g-economia"></canvas></div>
+  <section id="models" class="section" hidden>
+    <div class="grid g2">
+      <div class="card wide">
+        <div class="card-head"><h2 data-i18n="mod.table"></h2></div>
+        <p class="explain" data-i18n="mod.table.explain"></p>
+        <div class="table-scroll"><table id="t-models"></table></div>
       </div>
-      <div class="cartao largo" id="bloco-rtk-cmd">
-        <div class="cartao-topo"><h2 data-i18n="eco.rtkCmd"></h2></div>
-        <p class="explica" data-i18n="eco.rtkCmd.explica"></p>
-        <div class="tabela-rolagem"><table id="t-rtk-cmd"></table></div>
+      <div class="card wide">
+        <div class="card-head"><h2 data-i18n="mod.perHour"></h2></div>
+        <div class="chart"><canvas id="g-hour"></canvas></div>
       </div>
-      <div class="cartao" id="bloco-rtk-hook">
-        <div class="cartao-topo"><h2 data-i18n="eco.hook"></h2></div>
-        <p class="explica" data-i18n="eco.hook.explica"></p>
+      <div class="card">
+        <div class="card-head"><h2 data-i18n="mod.composition"></h2></div>
+        <p class="explain" data-i18n="mod.composition.explain"></p>
+        <div class="chart"><canvas id="g-composition"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2 data-i18n="mod.hourOfDay"></h2></div>
+        <p class="explain" data-i18n="mod.hourOfDay.explain"></p>
+        <div class="chart"><canvas id="g-hour-of-day"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="savings" class="section" hidden>
+    <div class="kpis" id="kpis-savings"></div>
+    <div class="card wide" style="margin-bottom:16px">
+      <div class="card-head"><h2 data-i18n="sav.mine"></h2></div>
+      <p class="explain" data-i18n="sav.mine.explain"></p>
+      <div id="sav-tools" class="grid g3" style="margin:0"></div>
+    </div>
+    <div class="card wide" id="block-sav-projects" style="margin-bottom:16px" hidden>
+      <div class="card-head"><h2 data-i18n="sav.proj"></h2></div>
+      <p class="explain" data-i18n="sav.proj.explain"></p>
+      <div class="table-scroll"><table id="t-sav-projects"></table></div>
+    </div>
+    <div class="grid g2">
+      <div class="card wide" id="block-sav-day">
+        <div class="card-head"><h2 id="title-sav-day"></h2></div>
+        <div class="chart"><canvas id="g-savings"></canvas></div>
+      </div>
+      <div class="card wide" id="block-rtk-cmd">
+        <div class="card-head"><h2 data-i18n="sav.rtkCmd"></h2></div>
+        <p class="explain" data-i18n="sav.rtkCmd.explain"></p>
+        <div class="table-scroll"><table id="t-rtk-cmd"></table></div>
+      </div>
+      <div class="card" id="block-rtk-hook">
+        <div class="card-head"><h2 data-i18n="sav.hook"></h2></div>
+        <p class="explain" data-i18n="sav.hook.explain"></p>
         <div id="rtk-hook"></div>
       </div>
-      <div class="cartao" id="bloco-rtk-falhas">
-        <div class="cartao-topo"><h2 data-i18n="eco.falhas"></h2></div>
-        <p class="explica" data-i18n="eco.falhas.explica"></p>
-        <div id="rtk-falhas"></div>
+      <div class="card" id="block-rtk-failures">
+        <div class="card-head"><h2 data-i18n="sav.failures"></h2></div>
+        <p class="explain" data-i18n="sav.failures.explain"></p>
+        <div id="rtk-failures"></div>
       </div>
-      <div class="cartao largo" id="bloco-headroom">
-        <div class="cartao-topo"><h2 data-i18n="eco.headroom"></h2></div>
-        <div class="tabela-rolagem"><table id="t-headroom"></table></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="projetos" class="secao" hidden>
-    <div class="grade g2">
-      <div class="cartao largo">
-        <div class="cartao-topo"><h2 data-i18n="proj.top"></h2></div>
-        <div class="tabela-rolagem"><table id="t-projetos"></table></div>
-      </div>
-      <div class="cartao largo">
-        <div class="cartao-topo"><h2 data-i18n="proj.sessoes"></h2></div>
-        <div class="tabela-rolagem"><table id="t-sessoes"></table></div>
+      <div class="card wide" id="block-headroom">
+        <div class="card-head"><h2 data-i18n="sav.headroom"></h2></div>
+        <div class="table-scroll"><table id="t-headroom"></table></div>
       </div>
     </div>
   </section>
 
-  <section id="ferramentas" class="secao" hidden>
-    <div class="grade g3" id="ferramentas-grade"></div>
-    <div class="grade g2">
-      <div class="cartao largo">
-        <div class="cartao-topo"><h2 data-i18n="ol.titulo"></h2></div>
+  <section id="projects" class="section" hidden>
+    <div class="grid g2">
+      <div class="card wide">
+        <div class="card-head"><h2 data-i18n="proj.top"></h2></div>
+        <div class="table-scroll"><table id="t-projects"></table></div>
+      </div>
+      <div class="card wide">
+        <div class="card-head"><h2 data-i18n="proj.sessions"></h2></div>
+        <div class="table-scroll"><table id="t-sessions"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tools" class="section" hidden>
+    <div class="grid g3" id="tools-grid"></div>
+    <div class="grid g2">
+      <div class="card wide">
+        <div class="card-head"><h2 data-i18n="ol.title"></h2></div>
         <div id="ollama"></div>
       </div>
     </div>
   </section>
 
-  <section id="dicas" class="secao" hidden>
-    <div class="cartao largo" style="margin-bottom:16px">
-      <div class="cartao-topo"><h2 data-i18n="nota.titulo"></h2></div>
-      <p class="explica" data-i18n="nota.explica"></p>
-      <div id="nota-detalhe"></div>
+  <section id="tips" class="section" hidden>
+    <div class="card wide" style="margin-bottom:16px">
+      <div class="card-head"><h2 data-i18n="score.title"></h2></div>
+      <p class="explain" data-i18n="score.explain"></p>
+      <div id="score-detail"></div>
     </div>
-    <div class="cartao largo" id="cartao-ia">
-      <div class="cartao-topo"><h2 data-i18n="ia.titulo"></h2></div>
-      <p class="explica" data-i18n="ia.explica"></p>
-      <div class="ia-form">
-        <label><span data-i18n="ia.usar"></span><select id="ia-provedor"></select></label>
-        <label id="ia-campo-api" hidden><span>API</span><select id="ia-api"></select></label>
-        <label id="ia-campo-url" hidden><span data-i18n="ia.url"></span><input id="ia-url" type="url" spellcheck="false"></label>
-        <label id="ia-campo-modelo"><span data-i18n="ia.modelo"></span><input id="ia-modelo" list="ia-modelos" spellcheck="false"><datalist id="ia-modelos"></datalist></label>
-        <label id="ia-campo-chave" hidden><span data-i18n="ia.chave"></span><input id="ia-chave" type="password" autocomplete="off" spellcheck="false"></label>
-        <label id="ia-campo-comando" hidden class="largo"><span data-i18n="ia.comando"></span><input id="ia-comando" spellcheck="false"></label>
-        <label><span data-i18n="ia.dias"></span><select id="ia-dias"><option value="7"></option><option value="14"></option><option value="30"></option></select></label>
-        <div class="ia-botoes">
-          <button id="ia-analisar" class="botao primario" data-i18n="ia.analisar"></button>
-          <a id="ia-ver-prompt" href="/api/ia/prompt" target="_blank" rel="noopener" data-i18n="ia.verPrompt"></a>
+    <div class="card wide" id="card-ai">
+      <div class="card-head"><h2 data-i18n="ai.title"></h2></div>
+      <p class="explain" data-i18n="ai.explain"></p>
+      <div class="ai-form">
+        <label><span data-i18n="ai.use"></span><select id="ai-provider"></select></label>
+        <label id="ai-field-api" hidden><span>API</span><select id="ai-api"></select></label>
+        <label id="ai-field-url" hidden><span data-i18n="ai.url"></span><input id="ai-url" type="url" spellcheck="false"></label>
+        <label id="ai-field-model"><span data-i18n="ai.model"></span><input id="ai-model" list="ai-models" spellcheck="false"><datalist id="ai-models"></datalist></label>
+        <label id="ai-field-key" hidden><span data-i18n="ai.key"></span><input id="ai-key" type="password" autocomplete="off" spellcheck="false"></label>
+        <label id="ai-field-command" hidden class="wide"><span data-i18n="ai.command"></span><input id="ai-command" spellcheck="false"></label>
+        <label><span data-i18n="ai.days"></span><select id="ai-days"><option value="7"></option><option value="14"></option><option value="30"></option></select></label>
+        <div class="ai-buttons">
+          <button id="ai-analyze" class="btn primary" data-i18n="ai.analyze"></button>
+          <a id="ai-view-prompt" href="/api/ai/prompt" target="_blank" rel="noopener" data-i18n="ai.viewPrompt"></a>
         </div>
       </div>
-      <p class="explica" id="ia-aviso"></p>
-      <div id="ia-status"></div>
-      <div id="ia-resultado"></div>
+      <p class="explain" id="ai-notice"></p>
+      <div id="ai-status"></div>
+      <div id="ai-result"></div>
     </div>
-    <div class="cartao largo">
-      <div class="cartao-topo"><h2 data-i18n="regras.titulo"></h2></div>
-      <p class="explica" data-i18n="regras.explica"></p>
-      <div id="lista-dicas"></div>
+    <div class="card wide">
+      <div class="card-head"><h2 data-i18n="rules.title"></h2></div>
+      <p class="explain" data-i18n="rules.explain"></p>
+      <div id="tip-list"></div>
     </div>
   </section>
 
-  <section id="fontes" class="secao" hidden>
-    <div class="cartao largo" style="margin-bottom:16px">
-      <div class="cartao-topo"><h2 data-i18n="aj.limites"></h2></div>
-      <p class="explica" data-i18n="aj.limites.explica"></p>
-      <label class="check"><input type="checkbox" id="aj-limites-claude"> <span data-i18n="aj.limites.ligar"></span></label>
+  <section id="sources" class="section" hidden>
+    <div class="card wide" style="margin-bottom:16px">
+      <div class="card-head"><h2 data-i18n="settings.limits"></h2></div>
+      <p class="explain" data-i18n="settings.limits.explain"></p>
+      <label class="check"><input type="checkbox" id="set-claude-limits"> <span data-i18n="settings.limits.enable"></span></label>
     </div>
-    <div class="cartao largo" style="margin-bottom:16px">
-      <div class="cartao-topo"><h2 data-i18n="ass.titulo"></h2></div>
-      <p class="explica" data-i18n="ass.explica"></p>
-      <div id="assinaturas"></div>
+    <div class="card wide" style="margin-bottom:16px">
+      <div class="card-head"><h2 data-i18n="subs.title"></h2></div>
+      <p class="explain" data-i18n="subs.explain"></p>
+      <div id="subscriptions"></div>
     </div>
-    <div class="cartao largo">
-      <div class="cartao-topo"><h2 data-i18n="fontes.titulo"></h2></div>
-      <div class="tabela-rolagem"><table id="t-fontes"></table></div>
-      <p class="explica" id="fontes-nota"></p>
+    <div class="card wide">
+      <div class="card-head"><h2 data-i18n="sources.title"></h2></div>
+      <div class="table-scroll"><table id="t-sources"></table></div>
+      <p class="explain" id="sources-note"></p>
     </div>
-    <div class="cartao largo" style="margin-top:16px">
-      <div class="cartao-topo"><h2 data-i18n="precos.titulo"></h2><button id="btn-precos" class="botao" data-i18n="precos.atualizar"></button></div>
-      <p class="explica" data-i18n="precos.explica"></p>
-      <div id="precos-fontes"></div>
-      <h2 style="margin-top:18px" data-i18n="precos.porModelo"></h2>
-      <div class="tabela-rolagem"><table id="t-precos"></table></div>
+    <div class="card wide" style="margin-top:16px">
+      <div class="card-head"><h2 data-i18n="prices.title"></h2><button id="btn-prices" class="btn" data-i18n="prices.refresh"></button></div>
+      <p class="explain" data-i18n="prices.explain"></p>
+      <div id="price-sources"></div>
+      <h2 style="margin-top:18px" data-i18n="prices.byModel"></h2>
+      <div class="table-scroll"><table id="t-prices"></table></div>
     </div>
   </section>
 </main>

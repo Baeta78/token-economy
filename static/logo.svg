@@ -1,19 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Token Economy">
   <title>Token Economy</title>
   <defs>
-    <linearGradient id="moeda" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#4a95ec"/>
       <stop offset="1" stop-color="#1c5cab"/>
     </linearGradient>
   </defs>
-  <!-- moeda (o token) -->
-  <circle cx="30" cy="30" r="27" fill="url(#moeda)"/>
+  <!-- coin (the token) -->
+  <circle cx="30" cy="30" r="27" fill="url(#coin)"/>
   <circle cx="30" cy="30" r="21.5" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2"/>
-  <!-- barras descendo: gastar menos -->
+  <!-- descending bars: spend less -->
   <rect x="17" y="17" width="6.5" height="23" rx="3.25" fill="#ffffff"/>
   <rect x="26.75" y="23" width="6.5" height="17" rx="3.25" fill="#ffffff" fill-opacity="0.92"/>
   <rect x="36.5" y="29" width="6.5" height="11" rx="3.25" fill="#ffffff" fill-opacity="0.84"/>
-  <!-- selo de economia -->
+  <!-- savings badge -->
   <circle cx="49" cy="49" r="12" fill="#1baf7a" stroke="#ffffff" stroke-width="3"/>
   <path d="M49 42.5v12M43.5 49.5 49 55l5.5-5.5" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

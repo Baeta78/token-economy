@@ -1,6 +1,6 @@
-"""Token Economy: servidor local. Abre em http://127.0.0.1:8765
+"""Token Economy: local server. Opens at http://127.0.0.1:8765
 
-Uso:  python server.py [--porta 8765] [--intervalo 60] [--sem-navegador]
+Usage:  python server.py [--port 8765] [--interval 60] [--no-browser]
 """
 from __future__ import annotations
 
@@ -13,101 +13,102 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import ai
+import cache_migration
 import collector
-import ia
-import nota
-import precos
+import prices
+import score
 
 STATIC = Path(__file__).resolve().parent / "static"
 CONFIG = Path(__file__).resolve().parent / ".cache" / "config.json"
 
 
-def ler_config() -> dict:
+def read_config() -> dict:
     try:
         return json.loads(CONFIG.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001
         return {}
 
 
-CAMPOS_IA = ("tipo", "cli", "api", "url", "modelo", "comando", "dias")
+AI_FIELDS = ("type", "cli", "api", "url", "model", "command", "days")
 
 
-def gravar_config(novo: dict) -> dict:
-    cfg = ler_config()
-    if novo.get("idioma") in ("pt", "en", "es"):
-        cfg["idioma"] = novo["idioma"]
-    if isinstance(novo.get("ia"), dict):
-        atual = cfg.get("ia") or {}
-        for k in CAMPOS_IA:
-            if k in novo["ia"]:
-                atual[k] = str(novo["ia"][k])[:2000]
-        # a chave só é trocada quando vem preenchida; fica só neste arquivo local
-        if (novo["ia"].get("chave") or "").strip():
-            atual["chave"] = novo["ia"]["chave"].strip()
-        cfg["ia"] = atual
-    if isinstance(novo.get("limites_claude"), bool):
-        cfg["limites_claude"] = novo["limites_claude"]
-    if isinstance(novo.get("assinaturas"), list):
-        lista = []
-        for a in novo["assinaturas"][:12]:
+def write_config(new: dict) -> dict:
+    cfg = read_config()
+    if new.get("language") in ("pt", "en", "es"):
+        cfg["language"] = new["language"]
+    if isinstance(new.get("ai"), dict):
+        current = cfg.get("ai") or {}
+        for k in AI_FIELDS:
+            if k in new["ai"]:
+                current[k] = str(new["ai"][k])[:2000]
+        # the key is only replaced when it comes filled in; it stays only in this local file
+        if (new["ai"].get("key") or "").strip():
+            current["key"] = new["ai"]["key"].strip()
+        cfg["ai"] = current
+    if isinstance(new.get("claude_limits"), bool):
+        cfg["claude_limits"] = new["claude_limits"]
+    if isinstance(new.get("subscriptions"), list):
+        items = []
+        for a in new["subscriptions"][:12]:
             try:
-                mensal = float(a.get("mensal"))
+                monthly = float(a.get("monthly"))
             except (TypeError, ValueError, AttributeError):
                 continue
-            if mensal < 0:
+            if monthly < 0:
                 continue
-            lista.append({"nome": str(a.get("nome") or "")[:60], "agente": str(a.get("agente") or "")[:20], "mensal": round(mensal, 2)})
-        cfg["assinaturas"] = lista
+            items.append({"name": str(a.get("name") or "")[:60], "agent": str(a.get("agent") or "")[:20], "monthly": round(monthly, 2)})
+        cfg["subscriptions"] = items
     CONFIG.parent.mkdir(exist_ok=True)
     CONFIG.write_text(json.dumps(cfg), encoding="utf-8")
     return cfg
 
-def config_publica() -> dict:
-    """Configuração sem a chave de API (nunca sai do arquivo)."""
-    cfg = ler_config()
-    if isinstance(cfg.get("ia"), dict):
-        cfg["ia"] = {k: v for k, v in cfg["ia"].items() if k != "chave"}
-        cfg["ia"]["tem_chave"] = bool(ler_config()["ia"].get("chave"))
+def public_config() -> dict:
+    """Settings without the API key (it never leaves the file)."""
+    cfg = read_config()
+    if isinstance(cfg.get("ai"), dict):
+        cfg["ai"] = {k: v for k, v in cfg["ai"].items() if k != "key"}
+        cfg["ai"]["has_key"] = bool(read_config()["ai"].get("key"))
     return cfg
 
 
-estado = {"snapshot": None, "dados": None, "status": "Iniciando…", "erro": None, "coletando": False}
+state = {"snapshot": None, "data": None, "status": "Starting…", "error": None, "collecting": False}
 lock = threading.Lock()
-pedido = threading.Event()
-ouvintes = []  # funções chamadas a cada coleta nova (o app da bandeja usa)
+request = threading.Event()
+listeners = []  # functions called on every new collection (the tray app uses it)
 
 
-def coletar():
+def collect():
     with lock:
-        if estado["coletando"]:
+        if state["collecting"]:
             return
-        estado["coletando"] = True
+        state["collecting"] = True
     try:
-        def progresso(msg):
-            estado["status"] = msg
+        def progress(msg):
+            state["status"] = msg
 
-        snap = collector.collect(progresso)
-        estado["snapshot"] = json.dumps(snap, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        estado["dados"] = snap
-        estado["status"] = "ok"
-        estado["erro"] = None
-        for fn in list(ouvintes):
+        snap = collector.collect(progress)
+        state["snapshot"] = json.dumps(snap, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        state["data"] = snap
+        state["status"] = "ok"
+        state["error"] = None
+        for fn in list(listeners):
             try:
                 fn(snap)
             except Exception:  # noqa: BLE001
                 traceback.print_exc()
     except Exception as e:  # noqa: BLE001
-        estado["erro"] = f"{e}\n{traceback.format_exc()}"
-        estado["status"] = "erro"
+        state["error"] = f"{e}\n{traceback.format_exc()}"
+        state["status"] = "error"
     finally:
-        estado["coletando"] = False
+        state["collecting"] = False
 
 
-def laco(intervalo: int):
+def loop(interval: int):
     while True:
-        coletar()
-        pedido.wait(intervalo)
-        pedido.clear()
+        collect()
+        request.wait(interval)
+        request.clear()
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -126,28 +127,28 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        if self.path.startswith("/api/dados"):
-            snap = estado["snapshot"]
+        if self.path.startswith("/api/data"):
+            snap = state["snapshot"]
             if snap is None:
-                body = json.dumps({"carregando": True, "status": estado["status"], "erro": estado["erro"]}, ensure_ascii=False)
+                body = json.dumps({"loading": True, "status": state["status"], "error": state["error"]}, ensure_ascii=False)
                 return self._json(body.encode("utf-8"), 202)
             return self._json(snap)
         if self.path.startswith("/api/config"):
-            return self._json(json.dumps(config_publica()).encode("utf-8"))
-        if self.path.startswith("/api/nota"):
-            if estado["dados"] is None:
-                return self._json(b'{"carregando":true}', 202)
+            return self._json(json.dumps(public_config()).encode("utf-8"))
+        if self.path.startswith("/api/score"):
+            if state["data"] is None:
+                return self._json(b'{"loading":true}', 202)
             from urllib.parse import parse_qs, urlparse
             q = parse_qs(urlparse(self.path).query)
-            fim = float((q.get("fim") or [time.time()])[0])
-            ini = float((q.get("ini") or [fim - 7 * 86400])[0])
-            return self._json(json.dumps(nota.calcular(estado["dados"], ini, fim)).encode("utf-8"))
-        if self.path.startswith("/api/ia/prompt"):
-            if estado["dados"] is None:
-                return self._json(b'{"erro":"carregando"}', 202)
-            cfg = ler_config()
-            hist = ia.historico()
-            txt = ia.montar_prompt(estado["dados"], cfg.get("idioma", "en"), int((cfg.get("ia") or {}).get("dias") or 7), hist[0] if hist else None)
+            end = float((q.get("end") or [time.time()])[0])
+            start = float((q.get("start") or [end - 7 * 86400])[0])
+            return self._json(json.dumps(score.compute(state["data"], start, end)).encode("utf-8"))
+        if self.path.startswith("/api/ai/prompt"):
+            if state["data"] is None:
+                return self._json(b'{"error":"loading"}', 202)
+            cfg = read_config()
+            hist = ai.history()
+            txt = ai.build_prompt(state["data"], cfg.get("language", "en"), int((cfg.get("ai") or {}).get("days") or 7), hist[0] if hist else None)
             body = txt.encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
@@ -155,74 +156,76 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
-        if self.path.startswith("/api/ia"):
-            body = {"disponiveis": ia.disponiveis(), "historico": ia.historico()[:10], "estado": ia.estado,
-                    "config": config_publica().get("ia") or {}}
+        if self.path.startswith("/api/ai"):
+            body = {"available": ai.available(), "history": ai.history()[:10], "state": ai.state,
+                    "config": public_config().get("ai") or {}}
             return self._json(json.dumps(body, ensure_ascii=False).encode("utf-8"))
         if self.path.startswith("/api/status"):
-            body = json.dumps({"status": estado["status"], "coletando": estado["coletando"], "erro": estado["erro"]}, ensure_ascii=False)
+            body = json.dumps({"status": state["status"], "collecting": state["collecting"], "error": state["error"]}, ensure_ascii=False)
             return self._json(body.encode("utf-8"))
         return super().do_GET()
 
-    def _corpo(self) -> dict:
+    def _body(self) -> dict:
         n = int(self.headers.get("Content-Length") or 0)
         return json.loads(self.rfile.read(min(n, 65536)) or b"{}")
 
     def do_POST(self):
-        # só a página do próprio painel manda este cabeçalho; outros sites abertos no
-        # navegador não conseguem (o navegador exige permissão que este servidor não dá)
+        # only the panel's own page sends this header; other sites open in the
+        # browser cannot (the browser requires a permission this server does not grant)
         if self.headers.get("X-Token-Panel") != "1":
             self.send_error(403)
             return
-        if self.path.startswith("/api/ia/analisar"):
-            if estado["dados"] is None:
-                return self._json(b'{"erro":"carregando"}', 409)
+        if self.path.startswith("/api/ai/analyze"):
+            if state["data"] is None:
+                return self._json(b'{"error":"loading"}', 409)
             try:
-                corpo = self._corpo()
-                cfg = gravar_config({"ia": corpo, "idioma": corpo.get("idioma")})
-                ia.analisar(estado["dados"], cfg.get("ia") or {}, cfg.get("idioma", "en"))
+                body = self._body()
+                cfg = write_config({"ai": body, "language": body.get("language")})
+                ai.analyze(state["data"], cfg.get("ai") or {}, cfg.get("language", "en"))
                 return self._json(b'{"ok":true}', 202)
             except Exception as e:  # noqa: BLE001
-                return self._json(json.dumps({"erro": str(e)}).encode("utf-8"), 400)
-        if self.path.startswith("/api/precos/atualizar"):
-            def trabalho():
-                precos.atualizar(forcar=True)
-                pedido.set()  # recalcula os valores com a tabela nova
-            threading.Thread(target=trabalho, daemon=True).start()
+                return self._json(json.dumps({"error": str(e)}).encode("utf-8"), 400)
+        if self.path.startswith("/api/prices/refresh"):
+            def job():
+                prices.refresh(force=True)
+                request.set()  # recomputes the values with the new table
+            threading.Thread(target=job, daemon=True).start()
             return self._json(b'{"ok":true}', 202)
-        if self.path.startswith("/api/atualizar"):
-            pedido.set()
+        if self.path.startswith("/api/refresh"):
+            request.set()
             return self._json(b'{"ok":true}')
         if self.path.startswith("/api/config"):
             try:
                 n = int(self.headers.get("Content-Length") or 0)
-                gravar_config(json.loads(self.rfile.read(min(n, 4096)) or b"{}"))
-                return self._json(json.dumps(config_publica()).encode("utf-8"))
+                write_config(json.loads(self.rfile.read(min(n, 4096)) or b"{}"))
+                return self._json(json.dumps(public_config()).encode("utf-8"))
             except Exception:  # noqa: BLE001
-                return self._json(b'{"erro":"config invalida"}', 400)
+                return self._json(b'{"error":"invalid config"}', 400)
         self.send_error(404)
 
 
-def iniciar(porta: int = 8765, intervalo: int = 60) -> ThreadingHTTPServer:
-    """Sobe o servidor e a coleta em threads de fundo. Usado pelo app da bandeja."""
-    srv = ThreadingHTTPServer(("127.0.0.1", porta), Handler)
-    threading.Thread(target=laco, args=(intervalo,), daemon=True).start()
+def start(port: int = 8765, interval: int = 60) -> ThreadingHTTPServer:
+    """Starts the server and the collection in background threads. Used by the tray app."""
+    srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    cache_migration.migrate()  # only once the port is ours: no other instance is using .cache/
+    threading.Thread(target=loop, args=(interval,), daemon=True).start()
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--porta", type=int, default=8765)
-    ap.add_argument("--intervalo", type=int, default=60, help="segundos entre coletas")
-    ap.add_argument("--sem-navegador", action="store_true")
+    ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--interval", type=int, default=60, help="seconds between collections")
+    ap.add_argument("--no-browser", action="store_true")
     args = ap.parse_args()
 
-    threading.Thread(target=laco, args=(args.intervalo,), daemon=True).start()
-    srv = ThreadingHTTPServer(("127.0.0.1", args.porta), Handler)
-    url = f"http://127.0.0.1:{args.porta}"
+    srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    cache_migration.migrate()  # only once the port is ours: no other instance is using .cache/
+    threading.Thread(target=loop, args=(args.interval,), daemon=True).start()
+    url = f"http://127.0.0.1:{args.port}"
     print(f"Token Economy: {url}  (Ctrl+C)")
-    if not args.sem_navegador:
+    if not args.no_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     try:
         srv.serve_forever()

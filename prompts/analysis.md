@@ -10,26 +10,26 @@ You are reviewing how a developer uses AI coding agents on their own machine. Yo
 - Plan limits matter more than dollars for subscription users: a Codex 5-hour window that runs out in 2 hours is a bigger problem than a high API-equivalent cost. Dollar figures are what the same usage would cost on the pay-per-token API.
 - "New tokens" = uncached input + cache writes + output. Cache reads cost about 10% of input and are listed separately.
 - RTK compresses shell command output before the agent reads it. Its hook only sees the Bash tool (not built-in Read/Grep tools, and not Claude Code's PowerShell tool) and it has no filters for PowerShell cmdlets such as Get-Content; `filterable_commands_that_bypassed_rtk` lists commands RTK could have compressed (or PowerShell cmdlets with a Bash equivalent) as [total, through RTK]. `token_saving_tools` lists only the token-saving tools installed on this machine; `records_savings: false` means the tool does not store its savings, so never estimate them. Only comment on tools in that list. Ollama runs local models.
-- Write in {idioma}. Keep each text short: title up to 12 words, text up to 60 words, action up to 40 words.
+- Write every text value in {language}, the language the user chose in the panel. Keep each text short: title up to 12 words, text up to 60 words, action up to 40 words.
 
 ## Answer format
 
 Reply with only this JSON object, no Markdown fences and no text before or after it:
 
 {
-  "resumo": "one or two sentences on the overall picture and the trend versus the previous period",
-  "itens": [
+  "summary": "one or two sentences on the overall picture and the trend versus the previous period",
+  "items": [
     {
-      "nivel": "alta" | "media" | "baixa" | "ok",
-      "titulo": "short headline",
-      "texto": "what the data shows, with the numbers",
-      "acao": "what to do about it"
+      "level": "high" | "medium" | "low" | "ok",
+      "title": "short headline",
+      "text": "what the data shows, with the numbers",
+      "action": "what to do about it"
     }
   ]
 }
 
-`nivel`: `alta` = costs a lot of limit or money now; `media` = worth fixing soon; `baixa` = small gain; `ok` = something that is working well.
+`level`: `high` = costs a lot of limit or money now; `medium` = worth fixing soon; `low` = small gain; `ok` = something that is working well. Keep the JSON keys and the `level` values in English exactly as shown.
 
 ## Data
 
-{dados}
+{data}

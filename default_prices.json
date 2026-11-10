@@ -1,6 +1,6 @@
 {
-  "_readme": "Built-in fallback prices (US$ per 1M tokens), used only when a model is missing from precos.json and from the downloaded LiteLLM/OpenRouter tables (for example, with no internet). Do not edit; put your own values in precos.json.",
-  "modelos": {
+  "_readme": "Built-in fallback prices (US$ per 1M tokens), used only when a model is missing from prices.json and from the downloaded LiteLLM/OpenRouter tables (for example, with no internet). Do not edit; put your own values in prices.json.",
+  "models": {
     "claude-fable-5-2": {
       "input": 8.0,
       "output": 40.0,
@@ -98,7 +98,7 @@
       "cache_write": 1.0
     }
   },
-  "_fontes": {
+  "_sources": {
     "anthropic": "Claude API model table, 2026-11-03",
     "gpt-6.1-sol": "openai.com/index/introducing-gpt-6-1-sol (official)",
     "gpt-6-astra, gpt-6.1-terra": "third-party aggregators (aipricing.guru, activepieces.com), 2026-11; not checked against openai.com/api/pricing"

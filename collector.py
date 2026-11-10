@@ -1,16 +1,16 @@
-"""Coleta os dados de uso e economia de tokens das ferramentas instaladas nesta máquina.
+"""Collects the token usage and token savings data of the tools installed on this machine.
 
-Fontes lidas (somente leitura, nada é alterado):
-  - Claude Code : ~/.claude/projects/**/*.jsonl          (uso por mensagem)
-  - Codex       : ~/.codex/sessions/**/rollout-*.jsonl   (uso por turno + limites de 5h e semanal)
-  - OpenCode    : ~/.local/share/opencode/opencode.db     (uso por mensagem)
-  - Ollama      : %LOCALAPPDATA%/Ollama/server*.log        (requisições e duração; o Ollama não registra tokens)
-  - RTK         : %LOCALAPPDATA%/rtk/history.db            (economia na saída de comandos)
-  - Headroom    : ~/.headroom/savings_events.jsonl e proxy_savings.json (economia no proxy)
-  - Graphify    : chamadas registradas pelos agentes e projetos com graphify-out/graph.json
+Sources read (read-only, nothing is changed):
+  - Claude Code : ~/.claude/projects/**/*.jsonl          (usage per message)
+  - Codex       : ~/.codex/sessions/**/rollout-*.jsonl   (usage per turn + 5h and weekly limits)
+  - OpenCode    : ~/.local/share/opencode/opencode.db     (usage per message)
+  - Ollama      : %LOCALAPPDATA%/Ollama/server*.log        (requests and duration; Ollama does not log tokens)
+  - RTK         : %LOCALAPPDATA%/rtk/history.db            (savings on command output)
+  - Headroom    : ~/.headroom/savings_events.jsonl and proxy_savings.json (savings in the proxy)
+  - Graphify    : calls logged by the agents and projects with graphify-out/graph.json
 
-Os arquivos grandes (Claude e Codex) são lidos de forma incremental: o cache em
-.cache/ guarda até onde cada arquivo já foi lido.
+The large files (Claude and Codex) are read incrementally: the cache in
+.cache/ keeps how far each file has already been read.
 """
 from __future__ import annotations
 
@@ -26,17 +26,17 @@ import threading
 import time
 from collections import defaultdict
 
-import economia as economia_mod
-import limites as limites_mod
-import sinais as sinais_mod
-import precos as precos_mod
+import savings as savings_mod
+import limits as limits_mod
+import signals as signals_mod
+import prices as prices_mod
 from pathlib import Path
 
 HOME = Path(os.environ.get("USERPROFILE") or Path.home())
 LOCAL = Path(os.environ.get("LOCALAPPDATA") or HOME / "AppData" / "Local")
 BASE = Path(__file__).resolve().parent
 CACHE_DIR = BASE / ".cache"
-CACHE_FILE = CACHE_DIR / "arquivos.json"
+CACHE_FILE = CACHE_DIR / "file_index.json"
 CACHE_VERSION = 5
 
 PATHS = {
@@ -49,25 +49,25 @@ PATHS = {
     "headroom": HOME / ".headroom",
 }
 
-AGENTES = {
+AGENTS = {
     "claude": "Claude Code",
     "codex": "Codex",
     "opencode": "OpenCode",
     "ollama": "Ollama",
-    "desconhecido": "Não identificado",
+    "unknown": "Unidentified",
 }
 
 
-def load_precos() -> dict:
+def load_prices() -> dict:
     return {}
 
 
 # ----------------------------------------------------------------------------
-# utilidades
+# utilities
 # ----------------------------------------------------------------------------
 
 def parse_ts(value) -> float | None:
-    """Converte ISO-8601, epoch em segundos ou em milissegundos para epoch em segundos."""
+    """Converts ISO-8601, epoch in seconds or in milliseconds to epoch in seconds."""
     if value is None or value == "":
         return None
     if isinstance(value, (int, float)):
@@ -77,7 +77,7 @@ def parse_ts(value) -> float | None:
     try:
         if s.endswith("Z"):
             s = s[:-1] + "+00:00"
-        # Python só aceita até 6 casas decimais nos segundos
+        # Python only accepts up to 6 decimal places in the seconds
         m = re.match(r"^(.*\.\d{6})\d+(.*)$", s)
         if m:
             s = m.group(1) + m.group(2)
@@ -90,7 +90,7 @@ def parse_ts(value) -> float | None:
 
 
 def hour_key(ts: float) -> str:
-    """Hora local no formato AAAA-MM-DDTHH."""
+    """Local hour in the YYYY-MM-DDTHH format."""
     return dt.datetime.fromtimestamp(ts).strftime("%Y-%m-%dT%H")
 
 
@@ -108,23 +108,23 @@ def norm_path(p: str) -> str:
     return p
 
 
-_ANONIMO = re.compile(r"^([0-9a-f]{8}-[0-9a-f-]{20,}|[0-9a-f]{12,}|agent-[0-9a-f]+|scratchpad|worktrees|\.claude)$", re.I)
+_ANONYMOUS = re.compile(r"^([0-9a-f]{8}-[0-9a-f-]{20,}|[0-9a-f]{12,}|agent-[0-9a-f]+|scratchpad|worktrees|\.claude)$", re.I)
 
 
 @functools.lru_cache(maxsize=4096)
-def projeto_nome(p: str) -> str:
-    """Nome do projeto: a raiz do repositório git, ou a última pasta com nome legível."""
+def project_name(p: str) -> str:
+    """Project name: the git repository root, or the last folder with a readable name."""
     p = norm_path(p)
     if not p:
-        return "~sem"
+        return "~none"
     low = p.lower()
     if "\\temp\\claude\\" in low or "\\appdata\\local\\temp" in low:
         return "~temp"
-    # worktree de subagente: .../repo/.claude/worktrees/agent-xxx -> repo
+    # subagent worktree: .../repo/.claude/worktrees/agent-xxx -> repo
     m = re.search(r"\\([^\\]+)\\\.claude\\worktrees\\", p, re.I)
     if m:
         return m.group(1)
-    # sobe até a raiz do git, se existir
+    # walks up to the git root, if there is one
     cur = p
     for _ in range(8):
         if os.path.isdir(os.path.join(cur, ".git")) or os.path.isfile(os.path.join(cur, ".git")):
@@ -134,53 +134,53 @@ def projeto_nome(p: str) -> str:
             break
         cur = parent
     parts = [x for x in p.split("\\") if x]
-    while len(parts) > 1 and _ANONIMO.match(parts[-1]):
+    while len(parts) > 1 and _ANONYMOUS.match(parts[-1]):
         parts.pop()
     return parts[-1] if parts else p
 
 
-_ESPERA = re.compile(r"wait|sleep|poll|status", re.I)
+_WAIT = re.compile(r"wait|sleep|poll|status", re.I)
 
 
-def conta_ferramenta_hora(th: dict, ts: float, nome: str) -> None:
-    """Chamadas de ferramenta por hora: [total, espera]."""
+def count_tool_hour(th: dict, ts: float, name: str) -> None:
+    """Tool calls per hour: [total, waits]."""
     h = hour_key(ts)
     v = th.setdefault(h, [0, 0])
     v[0] += 1
-    if _ESPERA.search(nome or ""):
+    if _WAIT.search(name or ""):
         v[1] += 1
 
 
-def familia_modelo(model: str) -> str:
+def model_family(model: str) -> str:
     m = (model or "").lower()
     if not m:
-        return "desconhecido"
+        return "unknown"
     return m
 
 
-def preco_modelo(model: str, precos: dict | None = None) -> dict | None:
-    return precos_mod.preco(model)[0]
+def model_price(model: str, prices: dict | None = None) -> dict | None:
+    return prices_mod.price(model)[0]
 
 
-def custo_usd(model: str, u: dict, precos: dict) -> float | None:
-    p = preco_modelo(model, precos)
+def cost_usd(model: str, u: dict, prices: dict) -> float | None:
+    p = model_price(model, prices)
     if not p or p.get("input") is None:
         return None
-    entrada = p.get("input", 0) or 0
+    inp = p.get("input", 0) or 0
     cr = p.get("cache_read")
     cw = p.get("cache_write")
     cw1h = min(u.get("cache_write_1h", 0), u.get("cache_write", 0))
     return (
-        u.get("input", 0) * entrada
-        + u.get("cache_read", 0) * (cr if cr is not None else entrada * 0.1)
-        + (u.get("cache_write", 0) - cw1h) * (cw if cw is not None else entrada * 1.25)
-        + cw1h * entrada * 2
+        u.get("input", 0) * inp
+        + u.get("cache_read", 0) * (cr if cr is not None else inp * 0.1)
+        + (u.get("cache_write", 0) - cw1h) * (cw if cw is not None else inp * 1.25)
+        + cw1h * inp * 2
         + u.get("output", 0) * (p.get("output", 0) or 0)
     ) / 1_000_000
 
 
 # ----------------------------------------------------------------------------
-# cache incremental por arquivo
+# incremental per-file cache
 # ----------------------------------------------------------------------------
 
 _cache_lock = threading.Lock()
@@ -204,7 +204,7 @@ def save_cache(cache: dict) -> None:
 
 
 def iter_new_lines(path: str, entry: dict):
-    """Lê só as linhas novas desde o último offset. Recomeça se o arquivo encolheu."""
+    """Reads only the lines added since the last offset. Starts over if the file shrank."""
     size = os.path.getsize(path)
     offset = entry.get("offset", 0)
     if size < offset:
@@ -215,7 +215,7 @@ def iter_new_lines(path: str, entry: dict):
     with open(path, "rb") as f:
         f.seek(offset)
         data = f.read(size - offset)
-    # só processa até a última quebra de linha completa
+    # only processes up to the last complete line break
     cut = data.rfind(b"\n")
     if cut < 0:
         return
@@ -243,7 +243,7 @@ def scan_claude(cache: dict, progress) -> None:
             continue
         if entry.get("offset") == st.st_size:
             continue
-        progress(f"Claude Code: {i + 1}/{len(files)} arquivos")
+        progress(f"Claude Code: {i + 1}/{len(files)} files")
         msgs = entry.setdefault("msgs", {})
         tools = entry.setdefault("tools", {})
         th = entry.setdefault("tools_h", {})
@@ -281,7 +281,7 @@ def scan_claude(cache: dict, progress) -> None:
                 1 if is_sub else 0,
             ]
             prev = msgs.get(mid)
-            # a mesma mensagem aparece em várias linhas; fica a de maior saída
+            # the same message shows up on several lines; keep the one with the largest output
             if prev is None or rec[3] >= prev[3]:
                 msgs[mid] = rec
             for block in m.get("content") or []:
@@ -291,12 +291,12 @@ def scan_claude(cache: dict, progress) -> None:
                     if name == "Skill":
                         name = "Skill:" + str(inp.get("skill") or "?")
                     tools[name] = tools.get(name, 0) + 1
-                    conta_ferramenta_hora(th, ts, name)
+                    count_tool_hour(th, ts, name)
                     if block.get("name") in ("Bash", "PowerShell"):
                         c = inp.get("command")
                         if c:
-                            ferr = "ps" if block.get("name") == "PowerShell" else "sh"
-                            cmds.append([round(ts, 3), norm_cmd(c)[:600], ferr])
+                            shell = "ps" if block.get("name") == "PowerShell" else "sh"
+                            cmds.append([round(ts, 3), norm_cmd(c)[:600], shell])
         entry["mtime"] = st.st_mtime
 
 
@@ -335,7 +335,7 @@ def scan_codex(cache: dict, progress) -> None:
             continue
         if entry.get("offset") == st.st_size:
             continue
-        progress(f"Codex: {i + 1}/{len(files)} arquivos")
+        progress(f"Codex: {i + 1}/{len(files)} files")
         turns = entry.setdefault("turns", [])
         limits = entry.setdefault("limits", [])
         tools = entry.setdefault("tools", {})
@@ -392,12 +392,12 @@ def scan_codex(cache: dict, progress) -> None:
             elif t == "response_item" and p.get("type") in ("function_call", "custom_tool_call", "local_shell_call"):
                 name = p.get("name") or p.get("type")
                 body = p.get("input") or p.get("arguments") or json.dumps(p.get("action") or {})
-                # o Codex embrulha as ferramentas em "exec": conta a ferramenta real
+                # Codex wraps tools in "exec": count the real tool
                 inner = re.findall(r"tools\.([A-Za-z0-9_]+)\(", body or "")
                 for n in inner or [name]:
                     tools[n] = tools.get(n, 0) + 1
                     if ts is not None:
-                        conta_ferramenta_hora(th, ts, n)
+                        count_tool_hour(th, ts, n)
                 if ts is not None:
                     for c in _codex_cmds(body):
                         cmds.append([round(ts, 3), norm_cmd(c)[:600]])
@@ -409,10 +409,10 @@ def scan_codex(cache: dict, progress) -> None:
 # ----------------------------------------------------------------------------
 
 def scan_opencode() -> dict:
-    out = {"msgs": [], "tools": defaultdict(int), "tools_dir": defaultdict(lambda: defaultdict(int)), "cmds": [], "ok": False, "erro": None}
+    out = {"msgs": [], "tools": defaultdict(int), "tools_dir": defaultdict(lambda: defaultdict(int)), "cmds": [], "ok": False, "error": None}
     db = PATHS["opencode"]
     if not db.exists():
-        out["erro"] = "banco não encontrado"
+        out["error"] = "database not found"
         return out
     try:
         c = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
@@ -440,20 +440,20 @@ def scan_opencode() -> dict:
                 if isinstance(part, dict) and part.get("type") == "tool":
                     name = part.get("name") or "?"
                     inp = (part.get("state") or {}).get("input") or {}
-                    pasta = dirs.get(sid, "")
-                    nomes = [name]
+                    folder = dirs.get(sid, "")
+                    names = [name]
                     if name == "execute":
                         inner = re.findall(r"tools\[\"([^\"]+)\"\]\.([A-Za-z0-9_]+)", inp.get("code") or "")
-                        nomes = [f"mcp:{srv}.{fn}" for srv, fn in inner] or [name]
-                    for n in nomes:
+                        names = [f"mcp:{srv}.{fn}" for srv, fn in inner] or [name]
+                    for n in names:
                         out["tools"][n] += 1
-                        out["tools_dir"][pasta][n] += 1
+                        out["tools_dir"][folder][n] += 1
                     cmd = inp.get("command") or inp.get("cmd")
                     if cmd and ts:
-                        out["cmds"].append([ts, norm_cmd(cmd)[:600], pasta])
+                        out["cmds"].append([ts, norm_cmd(cmd)[:600], folder])
         out["ok"] = True
     except Exception as e:  # noqa: BLE001
-        out["erro"] = str(e)
+        out["error"] = str(e)
     return out
 
 
@@ -477,7 +477,7 @@ def _dur_s(num: str, unit: str) -> float:
         return v / 1e3
     if unit == "s":
         return v
-    m = re.match(r"m([\d.]+)s", unit)  # "1m20s" vira num=1 unit=m20s
+    m = re.match(r"m([\d.]+)s", unit)  # "1m20s" becomes num=1 unit=m20s
     if m:
         return v * 60 + float(m.group(1))
     m = re.match(r"h(\d+)m([\d.]+)s", unit)
@@ -487,7 +487,7 @@ def _dur_s(num: str, unit: str) -> float:
 
 
 def scan_ollama() -> dict:
-    out = {"reqs": [], "modelos": [], "ok": False, "erro": None}
+    out = {"reqs": [], "models": [], "ok": False, "error": None}
     logdir = PATHS["ollama_logs"]
     seen = set()
     for path in sorted(glob.glob(str(logdir / "server*.log"))):
@@ -513,7 +513,7 @@ def scan_ollama() -> dict:
                     out["reqs"].append([d.timestamp(), endpoint, int(m.group(3)), _dur_s(m.group(4), m.group(5))])
             out["ok"] = True
         except Exception as e:  # noqa: BLE001
-            out["erro"] = str(e)
+            out["error"] = str(e)
     try:
         import subprocess
 
@@ -522,9 +522,9 @@ def scan_ollama() -> dict:
         for line in res.stdout.splitlines()[1:]:
             cols = line.split()
             if len(cols) >= 4:
-                out["modelos"].append({"nome": cols[0], "tamanho": " ".join(cols[2:4])})
+                out["models"].append({"name": cols[0], "size": " ".join(cols[2:4])})
         res = subprocess.run(["ollama", "ps"], capture_output=True, text=True, timeout=8, creationflags=flags)
-        out["carregados"] = [l.split()[0] for l in res.stdout.splitlines()[1:] if l.strip()]
+        out["loaded"] = [l.split()[0] for l in res.stdout.splitlines()[1:] if l.strip()]
     except Exception:
         pass
     return out
@@ -535,10 +535,10 @@ def scan_ollama() -> dict:
 # ----------------------------------------------------------------------------
 
 def scan_rtk() -> dict:
-    out = {"rows": [], "falhas": [], "hooks": [], "ok": False, "erro": None}
+    out = {"rows": [], "failures": [], "hooks": [], "ok": False, "error": None}
     db = PATHS["rtk"]
     if not db.exists():
-        out["erro"] = "history.db não encontrado"
+        out["error"] = "history.db not found"
         return out
     try:
         c = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
@@ -550,28 +550,28 @@ def scan_rtk() -> dict:
                 continue
             out["rows"].append([ts, row[1] or "", row[2] or "", row[3] or 0, row[4] or 0, row[5] or 0, row[6] or 0, row[7] or ""])
         for row in c.execute("select timestamp, raw_command, error_message, fallback_succeeded from parse_failures"):
-            out["falhas"].append([parse_ts(row[0]), row[1] or "", row[2] or "", row[3]])
+            out["failures"].append([parse_ts(row[0]), row[1] or "", row[2] or "", row[3]])
         for row in c.execute("select timestamp, session_id, tool_use_id, raw_cmd, decision from hook_decisions"):
             out["hooks"].append([parse_ts(row[0]), row[1], row[2] or "", norm_cmd(row[3] or ""), row[4] or ""])
         out["ok"] = True
     except Exception as e:  # noqa: BLE001
-        out["erro"] = str(e)
+        out["error"] = str(e)
     return out
 
 
-def _agente_por_tool_id(tid: str) -> str:
+def _agent_from_tool_id(tid: str) -> str:
     if tid.startswith("toolu_"):
         return "claude"
     if tid.startswith("call_"):
         return "codex"
-    return "desconhecido"
+    return "unknown"
 
 
 _WORD = re.compile(r"[a-z0-9_\-]{2,}")
-_STOP = {"users", "jonas", "dev", "null", "head", "tail", "rtk", "cd", "echo", "true"}
+_STOP = {"users", "dev", "null", "head", "tail", "rtk", "cd", "echo", "true"}
 
 
-def _palavras(s: str) -> list[str]:
+def _words(s: str) -> list[str]:
     seen, out = set(), []
     for w in _WORD.findall((s or "").lower()):
         if w not in seen and w not in _STOP:
@@ -580,82 +580,82 @@ def _palavras(s: str) -> list[str]:
     return out
 
 
-# comandos que o RTK sabe comprimir, e os equivalentes do PowerShell (que o RTK não
-# filtra, mas dá para trocar pela versão do Bash)
-RTK_FILTRA = {
+# commands RTK knows how to compress, and their PowerShell equivalents (which RTK does
+# not filter, but which can be swapped for the Bash version)
+RTK_FILTERS = {
     "cat", "head", "tail", "grep", "rg", "ls", "find", "tree", "wc", "diff", "git", "gh", "curl",
     "cargo", "npm", "pnpm", "npx", "yarn", "bun", "tsc", "jest", "vitest", "eslint", "prettier", "next",
     "pytest", "ruff", "mypy", "pip", "go", "golangci-lint", "docker", "kubectl", "aws", "terraform",
     "dotnet", "mvn", "gradle", "gradlew", "rspec", "rubocop", "rake", "php", "phpunit", "composer",
 }
-PS_EQUIVALENTE = {"get-content", "gc", "type", "select-string", "sls", "get-childitem", "gci", "dir", "measure-object"}
+PS_EQUIVALENT = {"get-content", "gc", "type", "select-string", "sls", "get-childitem", "gci", "dir", "measure-object"}
 
 
-def cabeca_cmd(c: str) -> str:
-    """Primeira palavra útil de um comando (pula cd, &&, ; e |)."""
+def cmd_head(c: str) -> str:
+    """First useful word of a command (skips cd, &&, ; and |)."""
     for seg in re.split(r"&&|\|\||;|\|", c or ""):
         w = seg.strip().split()
         if not w or w[0].lower() in ("cd", "set-location", "sl"):
             continue
-        cab = w[0].strip("&'\"").lower()
-        if cab == "rtk" and len(w) > 1:
-            cab = w[1].lower()
-        return cab.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].removesuffix(".exe")
+        head = w[0].strip("&'\"").lower()
+        if head == "rtk" and len(w) > 1:
+            head = w[1].lower()
+        return head.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].removesuffix(".exe")
     return ""
 
 
 class CmdIndex:
-    """Índice de comandos executados por cada agente, ordenado por tempo.
+    """Index of the commands run by each agent, sorted by time.
 
-    O RTK grava o comando já reescrito (aspas trocadas, ~ expandido, só o trecho
-    filtrado de um comando composto), então a comparação é por palavras: o
-    comando do RTK casa com o do agente quando a maior parte das suas palavras
-    aparece no comando do agente, perto no tempo.
+    RTK stores the command already rewritten (quotes changed, ~ expanded, only the
+    filtered part of a compound command), so the comparison is done by words: the
+    RTK command matches the agent's when most of its words appear in the agent's
+    command, close in time.
     """
 
     def __init__(self):
         self.items: list[tuple[float, str, set]] = []
-        self.atividade: dict[str, list[float]] = defaultdict(list)
+        self.activity: dict[str, list[float]] = defaultdict(list)
 
-    def add(self, ts: float, agente: str, cmd: str, fonte: str = "log"):
+    def add(self, ts: float, agent: str, cmd: str, source: str = "log"):
         if ts and cmd:
-            self.items.append((ts, agente, set(_palavras(cmd)), fonte, cabeca_cmd(cmd)))
+            self.items.append((ts, agent, set(_words(cmd)), source, cmd_head(cmd)))
 
-    def ativo(self, ts: float, agente: str):
-        self.atividade[agente].append(ts)
+    def active(self, ts: float, agent: str):
+        self.activity[agent].append(ts)
 
     def build(self):
         self.items.sort(key=lambda x: x[0])
         self.times = [x[0] for x in self.items]
-        for v in self.atividade.values():
+        for v in self.activity.values():
             v.sort()
 
-    def find(self, ts: float, cmd: str, antes: float = 1800, depois: float = 15) -> tuple[str, str, int | None]:
-        alvo = _palavras(cmd)[:10]
-        if alvo:
-            lo = bisect.bisect_left(self.times, ts - antes)
-            hi = bisect.bisect_right(self.times, ts + depois)
+    def find(self, ts: float, cmd: str, before: float = 1800, after: float = 15) -> tuple[str, str, int | None]:
+        target = _words(cmd)[:10]
+        if target:
+            lo = bisect.bisect_left(self.times, ts - before)
+            hi = bisect.bisect_right(self.times, ts + after)
             best, best_score, best_i = None, 0.0, None
             for i in range(lo, hi):
-                t, ag, ws, _f, _c = self.items[i]
-                hit = sum(1 for w in alvo if w in ws) / len(alvo)
+                t, ag, ws, _s, _h = self.items[i]
+                hit = sum(1 for w in target if w in ws) / len(target)
                 if hit < 0.6:
                     continue
-                # desempata pela proximidade no tempo
-                score = hit - abs(ts - t) / (antes * 10)
+                # ties are broken by closeness in time
+                score = hit - abs(ts - t) / (before * 10)
                 if score > best_score:
                     best, best_score, best_i = ag, score, i
             if best:
-                return best, "comando", best_i
-        # sem comando parecido: se só um agente estava ativo nos 10 minutos anteriores, é dele
-        ativos = []
-        for ag, tss in self.atividade.items():
+                return best, "command", best_i
+        # no similar command: if only one agent was active in the previous 10 minutes, it is that one's
+        actives = []
+        for ag, tss in self.activity.items():
             i = bisect.bisect_right(tss, ts + 60)
             if i and tss[i - 1] >= ts - 600:
-                ativos.append(ag)
-        if len(ativos) == 1:
-            return ativos[0], "atividade", None
-        return "desconhecido", "nenhum", None
+                actives.append(ag)
+        if len(actives) == 1:
+            return actives[0], "activity", None
+        return "unknown", "none", None
 
 
 # ----------------------------------------------------------------------------
@@ -663,7 +663,7 @@ class CmdIndex:
 # ----------------------------------------------------------------------------
 
 def scan_headroom() -> dict:
-    out = {"eventos": [], "lifetime": {}, "assinatura": None, "ok": False, "erro": None}
+    out = {"events": [], "lifetime": {}, "subscription": None, "ok": False, "error": None}
     root = PATHS["headroom"]
     ev = root / "savings_events.jsonl"
     if ev.exists():
@@ -675,15 +675,15 @@ def scan_headroom() -> dict:
             ts = parse_ts(d.get("ts"))
             if ts is None:
                 continue
-            out["eventos"].append({
+            out["events"].append({
                 "ts": ts,
-                "antes": int(d.get("before") or 0),
-                "depois": int(d.get("after") or 0),
-                "economia": int(d.get("saved") or 0),  # saved já inclui saved_tool_schema
+                "before": int(d.get("before") or 0),
+                "after": int(d.get("after") or 0),
+                "saved": int(d.get("saved") or 0),  # saved already includes saved_tool_schema
                 "usd": float(d.get("cost_usd") or 0),
-                "modelo": d.get("model") or "?",
-                "cliente": d.get("client") or "?",
-                "provedor": d.get("provider") or "?",
+                "model": d.get("model") or "?",
+                "client": d.get("client") or "?",
+                "provider": d.get("provider") or "?",
                 "cache_read": int((d.get("cache") or {}).get("cr") or 0),
             })
         out["ok"] = True
@@ -696,33 +696,33 @@ def scan_headroom() -> dict:
                 ts = parse_ts(h.get("timestamp"))
                 if ts is None:
                     continue
-                # o histórico agregado complementa eventos antigos que não estão no jsonl
-                out.setdefault("historico", []).append({
+                # the aggregated history fills in old events that are not in the jsonl
+                out.setdefault("history", []).append({
                     "ts": ts,
-                    "economia": int(h.get("total_tokens_saved") or 0),
-                    "modelo": h.get("model") or "?",
-                    "cliente": h.get("agent") or "?",
-                    "provedor": h.get("provider") or "?",
+                    "saved": int(h.get("total_tokens_saved") or 0),
+                    "model": h.get("model") or "?",
+                    "client": h.get("agent") or "?",
+                    "provider": h.get("provider") or "?",
                     "usd": float(h.get("compression_savings_usd") or 0),
                 })
             out["ok"] = True
         except Exception as e:  # noqa: BLE001
-            out["erro"] = str(e)
+            out["error"] = str(e)
     ss = root / "subscription_state.json"
     if ss.exists():
         try:
             j = json.loads(ss.read_text(encoding="utf-8"))
-            out["assinatura"] = j.get("latest")
+            out["subscription"] = j.get("latest")
         except Exception:
             pass
     return out
 
 
 # ----------------------------------------------------------------------------
-# montagem do snapshot
+# building the snapshot
 # ----------------------------------------------------------------------------
 
-def _cliente_headroom(c: str) -> str:
+def _headroom_client(c: str) -> str:
     c = (c or "").lower()
     if "claude" in c:
         return "claude"
@@ -732,70 +732,70 @@ def _cliente_headroom(c: str) -> str:
         return "opencode"
     if "ollama" in c:
         return "ollama"
-    return "desconhecido"
+    return "unknown"
 
 
 def collect(progress=lambda msg: None) -> dict:
     t0 = time.time()
-    precos = load_precos()
-    precos_mod.atualizar_em_segundo_plano()  # baixa as tabelas se tiverem mais de 7 dias
+    prices = load_prices()
+    prices_mod.refresh_in_background()  # downloads the tables if they are older than 7 days
     with _cache_lock:
         cache = load_cache()
-        progress("Lendo Claude Code…")
+        progress("Reading Claude Code…")
         scan_claude(cache, progress)
-        progress("Lendo Codex…")
+        progress("Reading Codex…")
         scan_codex(cache, progress)
         save_cache(cache)
-    progress("Lendo OpenCode, Ollama, RTK e Headroom…")
+    progress("Reading OpenCode, Ollama, RTK and Headroom…")
     oc = scan_opencode()
     ol = scan_ollama()
     rtk = scan_rtk()
     hr = scan_headroom()
 
-    # --- uso por hora: (hora, agente, modelo) -> métricas
-    uso_hora: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
-    uso_proj: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
-    sessoes: dict[tuple, dict] = {}
-    ferramentas: dict[str, dict] = {"claude": defaultdict(int), "codex": defaultdict(int), "opencode": defaultdict(int)}
+    # --- usage per hour: (hour, agent, model) -> metrics
+    usage_hour: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
+    usage_proj: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
+    sessions: dict[tuple, dict] = {}
+    tools: dict[str, dict] = {"claude": defaultdict(int), "codex": defaultdict(int), "opencode": defaultdict(int)}
     cmd_index = CmdIndex()
-    projetos_vistos: set[str] = set()
-    cabecas: dict[str, dict] = {"claude": defaultdict(int), "codex": defaultdict(int), "opencode": defaultdict(int)}
-    # por pasta de projeto: ferramentas chamadas e programas rodados no shell (para as
-    # ferramentas de economia que não registram quanto economizam: onde e quanto foram usadas)
-    ferr_pasta: dict[str, dict] = defaultdict(lambda: defaultdict(int))
-    cab_pasta: dict[str, dict] = defaultdict(lambda: defaultdict(int))
+    projects_seen: set[str] = set()
+    heads: dict[str, dict] = {"claude": defaultdict(int), "codex": defaultdict(int), "opencode": defaultdict(int)}
+    # per project folder: tools called and programs run in the shell (for the token-saving
+    # tools that do not record how much they save: where and how much they were used)
+    tools_by_folder: dict[str, dict] = defaultdict(lambda: defaultdict(int))
+    heads_by_folder: dict[str, dict] = defaultdict(lambda: defaultdict(int))
 
-    # atividade por hora e agente: chamadas de ferramenta, de espera e comandos de shell
-    atividade: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
+    # activity per hour and agent: tool calls, wait calls and shell commands
+    activity: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
 
-    def conta_cmd(ag, c, ts=None, pasta=""):
+    def count_cmd(ag, c, ts=None, folder=""):
         if ts:
-            atividade[(hour_key(ts), ag)]["shell"] += 1
+            activity[(hour_key(ts), ag)]["shell"] += 1
         for seg in re.split(r"&&|\|\||;|\|", c):
             w = seg.strip().split()
             if not w or w[0].lower() == "cd":
                 continue
-            cab = w[0].strip("&'\"").lower()[:30]
-            cabecas[ag][cab] += 1
-            if pasta:
-                cab_pasta[pasta][re.sub(r"\.(exe|cmd|bat)$", "", cab.replace("\\", "/").rsplit("/", 1)[-1])] += 1
+            head = w[0].strip("&'\"").lower()[:30]
+            heads[ag][head] += 1
+            if folder:
+                heads_by_folder[folder][re.sub(r"\.(exe|cmd|bat)$", "", head.replace("\\", "/").rsplit("/", 1)[-1])] += 1
             break
 
-    def pasta_principal(cwds) -> str:
-        """Pasta onde a sessão mais trabalhou (uma sessão quase sempre fica num projeto só)."""
-        cont = defaultdict(int)
+    def main_folder(cwds) -> str:
+        """Folder where the session worked the most (a session almost always stays in one project)."""
+        cnt = defaultdict(int)
         for c in cwds:
             if c:
-                cont[norm_path(c)] += 1
-        return max(cont, key=cont.get) if cont else ""
+                cnt[norm_path(c)] += 1
+        return max(cnt, key=cnt.get) if cnt else ""
 
     def add(ag, ts, model, inp, out_, cr, cw, reasoning, cwd, sess, usd=None, sub=0, cw1h=0):
         h = hour_key(ts)
-        cmd_index.ativo(ts, ag)
+        cmd_index.active(ts, ag)
         u = {"input": inp, "output": out_, "cache_read": cr, "cache_write": cw, "cache_write_1h": cw1h}
-        cost = usd if usd is not None else custo_usd(model, u, precos)
+        cost = usd if usd is not None else cost_usd(model, u, prices)
         k = (h, ag, model)
-        r = uso_hora[k]
+        r = usage_hour[k]
         r["msgs"] += 1
         r["input"] += inp
         r["output"] += out_
@@ -806,12 +806,12 @@ def collect(progress=lambda msg: None) -> dict:
         if cost is not None:
             r["usd"] += cost
         else:
-            r["sem_preco"] += inp + out_ + cr + cw
-        proj = projeto_nome(cwd)
+            r["unpriced"] += inp + out_ + cr + cw
+        proj = project_name(cwd)
         if cwd:
-            projetos_vistos.add(norm_path(cwd))
+            projects_seen.add(norm_path(cwd))
         pk = (h[:10], ag, proj)
-        p = uso_proj[pk]
+        p = usage_proj[pk]
         p["msgs"] += 1
         p["tokens"] += inp + out_ + cr + cw
         p["input"] += inp
@@ -820,12 +820,12 @@ def collect(progress=lambda msg: None) -> dict:
             p["usd"] += cost
         if sess:
             sk = (ag, sess)
-            s = sessoes.get(sk)
+            s = sessions.get(sk)
             if s is None:
-                s = sessoes[sk] = {"agente": ag, "id": sess, "projeto": proj, "pasta": norm_path(cwd), "inicio": ts, "fim": ts,
-                                   "msgs": 0, "tokens": 0, "input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "usd": 0.0, "modelos": {}}
-            s["inicio"] = min(s["inicio"], ts)
-            s["fim"] = max(s["fim"], ts)
+                s = sessions[sk] = {"agent": ag, "id": sess, "project": proj, "folder": norm_path(cwd), "start": ts, "end": ts,
+                                    "msgs": 0, "tokens": 0, "input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "usd": 0.0, "models": {}}
+            s["start"] = min(s["start"], ts)
+            s["end"] = max(s["end"], ts)
             s["msgs"] += 1
             s["tokens"] += inp + out_ + cr + cw
             s["input"] += inp
@@ -833,7 +833,7 @@ def collect(progress=lambda msg: None) -> dict:
             s["cache_read"] += cr
             s["cache_write"] += cw
             s["usd"] += cost or 0
-            s["modelos"][model] = s["modelos"].get(model, 0) + 1
+            s["models"][model] = s["models"].get(model, 0) + 1
 
     # Claude Code
     for key, e in cache["files"].items():
@@ -842,40 +842,40 @@ def collect(progress=lambda msg: None) -> dict:
         for rec in (e.get("msgs") or {}).values():
             ts, model, inp, out_, cr, cw, cw1h, cwd, sess, sub = rec
             add("claude", ts, model, inp, out_, cr, cw, 0, cwd, sess, sub=sub, cw1h=cw1h)
-        pasta = pasta_principal(rec[7] for rec in (e.get("msgs") or {}).values())
+        folder = main_folder(rec[7] for rec in (e.get("msgs") or {}).values())
         for n, c in (e.get("tools") or {}).items():
-            ferramentas["claude"][n] += c
-            if pasta:
-                ferr_pasta[pasta][n] += c
-        for h, (tot, esp) in (e.get("tools_h") or {}).items():
-            atividade[(h, "claude")]["ferramentas"] += tot
-            atividade[(h, "claude")]["espera"] += esp
-        for ts, c, *ferr in e.get("cmds") or []:
-            cmd_index.add(ts, "claude", c, "log-ps" if ferr and ferr[0] == "ps" else "log")
-            conta_cmd("claude", c, ts, pasta)
+            tools["claude"][n] += c
+            if folder:
+                tools_by_folder[folder][n] += c
+        for h, (tot, wait) in (e.get("tools_h") or {}).items():
+            activity[(h, "claude")]["tools"] += tot
+            activity[(h, "claude")]["waits"] += wait
+        for ts, c, *shell in e.get("cmds") or []:
+            cmd_index.add(ts, "claude", c, "log-ps" if shell and shell[0] == "ps" else "log")
+            count_cmd("claude", c, ts, folder)
 
     # Codex
-    limites_codex = []
+    codex_limits = []
     for key, e in cache["files"].items():
         if not key.startswith("codex:"):
             continue
         meta = e.get("meta") or {}
         for ts, model, inp, out_, cr, reasoning in e.get("turns") or []:
             add("codex", ts, model, inp, out_, cr, 0, reasoning, meta.get("cwd", ""), meta.get("session", ""))
-        limites_codex += e.get("limits") or []
-        pasta = norm_path(meta.get("cwd", ""))
+        codex_limits += e.get("limits") or []
+        folder = norm_path(meta.get("cwd", ""))
         for n, c in (e.get("tools") or {}).items():
-            ferramentas["codex"][n] += c
-            if pasta:
-                ferr_pasta[pasta][n] += c
-        for h, (tot, esp) in (e.get("tools_h") or {}).items():
-            atividade[(h, "codex")]["ferramentas"] += tot
-            atividade[(h, "codex")]["espera"] += esp
-        for ts, c, *ferr in e.get("cmds") or []:
+            tools["codex"][n] += c
+            if folder:
+                tools_by_folder[folder][n] += c
+        for h, (tot, wait) in (e.get("tools_h") or {}).items():
+            activity[(h, "codex")]["tools"] += tot
+            activity[(h, "codex")]["waits"] += wait
+        for ts, c, *shell in e.get("cmds") or []:
             cmd_index.add(ts, "codex", c)
-            conta_cmd("codex", c, ts, pasta)
+            count_cmd("codex", c, ts, folder)
 
-    # OpenCode (e Ollama quando usado pelo OpenCode)
+    # OpenCode (and Ollama when used through OpenCode)
     for ts, model, provider, inp, out_, cr, cw, reasoning, cost, cwd, sess in oc["msgs"]:
         if ts is None:
             continue
@@ -883,102 +883,102 @@ def collect(progress=lambda msg: None) -> dict:
         add(ag, ts, model if provider != "ollama" else f"ollama/{model}", inp, out_, cr, cw, reasoning, cwd, sess,
             usd=cost if cost else None)
     for n, c in oc["tools"].items():
-        ferramentas["opencode"][n] += c
-    for pasta, tl in oc.get("tools_dir", {}).items():
-        if pasta:
+        tools["opencode"][n] += c
+    for folder, tl in oc.get("tools_dir", {}).items():
+        if folder:
             for n, c in tl.items():
-                ferr_pasta[norm_path(pasta)][n] += c
-    for ts, c, *resto in oc["cmds"]:
+                tools_by_folder[norm_path(folder)][n] += c
+    for ts, c, *rest in oc["cmds"]:
         cmd_index.add(ts, "opencode", c)
-        conta_cmd("opencode", c, ts, norm_path(resto[0]) if resto else "")
+        count_cmd("opencode", c, ts, norm_path(rest[0]) if rest else "")
 
-    # Hooks do RTK (Claude Code registra session_id + tool_use_id)
+    # RTK hooks (Claude Code records session_id + tool_use_id)
     for ts, _sess, tid, raw, _dec in rtk["hooks"]:
         if ts:
-            cmd_index.add(ts, _agente_por_tool_id(tid), raw, "hook")
+            cmd_index.add(ts, _agent_from_tool_id(tid), raw, "hook")
     cmd_index.build()
 
-    # --- RTK: atribui cada comando a um agente
-    rtk_hora: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
+    # --- RTK: assigns each command to an agent
+    rtk_hour: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
     rtk_cmd: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
-    metodo_atrib = defaultdict(int)
+    attribution_method = defaultdict(int)
 
-    # Preço de entrada do modelo que cada agente usava em cada hora, para dar valor
-    # em dólar aos tokens que o RTK tirou do contexto. É uma estimativa mínima:
-    # conta só a primeira vez que a saída entraria; nas chamadas seguintes o mesmo
-    # texto ainda seria relido do cache.
-    peso_h: dict[tuple, list] = defaultdict(lambda: [0.0, 0.0])
-    peso_ag: dict[str, list] = defaultdict(lambda: [0.0, 0.0])
-    for (h, ag, model), v in uso_hora.items():
-        p = preco_modelo(model, precos)
+    # Input price of the model each agent was using in each hour, to give a dollar
+    # value to the tokens RTK kept out of the context. It is a minimum estimate:
+    # it only counts the first time the output would be read; on later calls the same
+    # text would still be re-read from the cache.
+    weight_h: dict[tuple, list] = defaultdict(lambda: [0.0, 0.0])
+    weight_ag: dict[str, list] = defaultdict(lambda: [0.0, 0.0])
+    for (h, ag, model), v in usage_hour.items():
+        p = model_price(model, prices)
         if not p or p.get("input") is None:
             continue
-        for alvo in (peso_h[(h, ag)], peso_ag[ag], peso_ag["*"]):
-            alvo[0] += p["input"] * v["msgs"]
-            alvo[1] += v["msgs"]
+        for target in (weight_h[(h, ag)], weight_ag[ag], weight_ag["*"]):
+            target[0] += p["input"] * v["msgs"]
+            target[1] += v["msgs"]
 
-    def preco_entrada(h: str, ag: str) -> float | None:
-        for alvo in (peso_h.get((h, ag)), peso_ag.get(ag), peso_ag.get("*") if ag == "desconhecido" else None):
-            if alvo and alvo[1]:
-                return alvo[0] / alvo[1]
+    def input_price(h: str, ag: str) -> float | None:
+        for target in (weight_h.get((h, ag)), weight_ag.get(ag), weight_ag.get("*") if ag == "unknown" else None):
+            if target and target[1]:
+                return target[0] / target[1]
         return None
 
-    # Estimativa com releituras: a saída de um comando fica no histórico e é relida do
-    # cache em cada chamada seguinte da sessão. Para cada comando, acha a sessão do
-    # agente que estava ativa e estima quantas chamadas ainda vieram depois.
-    sess_por_hora: dict[tuple, list] = defaultdict(list)
-    for (ag_s, _sid), sv in sessoes.items():
-        if sv["msgs"] < 2 or sv["fim"] <= sv["inicio"]:
+    # Estimate with re-reads: a command's output stays in the history and is re-read from
+    # the cache on every later call of the session. For each command, find the agent
+    # session that was active and estimate how many calls still came after it.
+    sess_by_hour: dict[tuple, list] = defaultdict(list)
+    for (ag_s, _sid), sv in sessions.items():
+        if sv["msgs"] < 2 or sv["end"] <= sv["start"]:
             continue
-        modelo_s = max(sv["modelos"], key=sv["modelos"].get)
-        p_s = preco_modelo(modelo_s) or {}
+        model_s = max(sv["models"], key=sv["models"].get)
+        p_s = model_price(model_s) or {}
         cr_s = p_s.get("cache_read")
         if cr_s is None and p_s.get("input") is not None:
             cr_s = p_s["input"] * 0.1
         cw_s = p_s.get("cache_write")
         if cw_s is None and p_s.get("input") is not None:
             cw_s = p_s["input"] * 1.25
-        # quanto um token dura no contexto: o contexto cresce em média `novo` tokens por
-        # chamada e, em média, tem `ctx` tokens; um token novo fica por volta de ctx/novo
-        # chamadas até a compactação ou o fim da conversa tirá-lo de lá
+        # how long a token stays in the context: the context grows on average by `new` tokens
+        # per call and holds on average `ctx` tokens; a new token stays for about ctx/new
+        # calls until compaction or the end of the conversation drops it
         ctx = (sv["input"] + sv["cache_read"] + sv["cache_write"]) / sv["msgs"]
-        novo = max((sv["input"] + sv["cache_write"] + sv["output"]) / sv["msgs"], 1)
-        vida = ctx / novo
-        item = (sv["inicio"], sv["fim"], sv["msgs"], sv["pasta"].lower(), cr_s, cw_s, vida)
-        t_h = int(sv["inicio"] // 3600)
-        while t_h <= int(sv["fim"] // 3600):
-            sess_por_hora[(t_h, ag_s)].append(item)
+        new = max((sv["input"] + sv["cache_write"] + sv["output"]) / sv["msgs"], 1)
+        life = ctx / new
+        item = (sv["start"], sv["end"], sv["msgs"], sv["folder"].lower(), cr_s, cw_s, life)
+        t_h = int(sv["start"] // 3600)
+        while t_h <= int(sv["end"] // 3600):
+            sess_by_hour[(t_h, ag_s)].append(item)
             t_h += 1
 
-    def releituras(ts: float, ag: str, pasta: str):
-        """(chamadas restantes estimadas, preço de leitura do cache, preço de escrita) ou None."""
-        cands = [x for x in sess_por_hora.get((int(ts // 3600), ag), ()) if x[0] <= ts <= x[1]]
+    def rereads(ts: float, ag: str, folder: str):
+        """(estimated remaining calls, cache read price, cache write price) or None."""
+        cands = [x for x in sess_by_hour.get((int(ts // 3600), ag), ()) if x[0] <= ts <= x[1]]
         if not cands:
             return None
-        pasta = norm_path(pasta).lower()
-        mesmo = [x for x in cands if pasta and x[3] and (pasta.startswith(x[3]) or x[3].startswith(pasta))]
-        ini, fim, msgs, _p, cr_s, cw_s, vida = max(mesmo or cands, key=lambda x: x[2])
+        folder = norm_path(folder).lower()
+        same = [x for x in cands if folder and x[3] and (folder.startswith(x[3]) or x[3].startswith(folder))]
+        start, end, msgs, _p, cr_s, cw_s, life = max(same or cands, key=lambda x: x[2])
         if cr_s is None:
             return None
-        return min(msgs * (fim - ts) / (fim - ini), vida), cr_s, cw_s
+        return min(msgs * (end - ts) / (end - start), life), cr_s, cw_s
 
-    cobertos: set[int] = set()
+    covered: set[int] = set()
     for ts, orig, rtk_c, inp, out_, saved, ms, proj in rtk["rows"]:
-        ag, metodo, idx = cmd_index.find(ts, orig)
-        # cobertura: quantos comandos distintos do agente passaram pelo RTK (um comando
-        # composto vira várias linhas no RTK e não pode contar mais de uma vez)
-        if idx is not None and idx not in cobertos:
-            cobertos.add(idx)
-            atividade[(hour_key(cmd_index.items[idx][0]), cmd_index.items[idx][1])]["shell_rtk"] += 1
-        if ag == "desconhecido" and "\\temp\\claude\\" in (proj or "").lower():
-            ag, metodo = "claude", "pasta"
-        metodo_atrib[metodo] += 1
+        ag, method, idx = cmd_index.find(ts, orig)
+        # coverage: how many distinct agent commands went through RTK (a compound command
+        # becomes several RTK rows and must not count more than once)
+        if idx is not None and idx not in covered:
+            covered.add(idx)
+            activity[(hour_key(cmd_index.items[idx][0]), cmd_index.items[idx][1])]["shell_rtk"] += 1
+        if ag == "unknown" and "\\temp\\claude\\" in (proj or "").lower():
+            ag, method = "claude", "folder"
+        attribution_method[method] += 1
         h = hour_key(ts)
-        r = rtk_hora[(h, ag)]
-        # mesma regra do `rtk gain`: acima de 7.500 tokens o agente nunca leria a
-        # saída inteira (limite de 30 mil caracteres do Bash), então não conta
+        r = rtk_hour[(h, ag)]
+        # same rule as `rtk gain`: above 7,500 tokens the agent would never read the
+        # whole output (Bash's 30 thousand character limit), so it does not count
         if inp > 7500:
-            r["grandes"] += 1
+            r["large"] += 1
             continue
         saved = max(saved, 0)
         r["cmds"] += 1
@@ -986,26 +986,26 @@ def collect(progress=lambda msg: None) -> dict:
         r["output"] += out_
         r["saved"] += saved
         r["ms"] += ms
-        pin = preco_entrada(h, ag)
+        pin = input_price(h, ag)
         usd_rtk = saved * pin / 1_000_000 if pin is not None else None
         if usd_rtk is None:
-            r["sem_preco"] += saved
+            r["unpriced"] += saved
         else:
             r["usd"] += usd_rtk
-        rel = releituras(ts, ag, proj) if saved else None
+        rel = rereads(ts, ag, proj) if saved else None
         if rel:
-            restantes, cr_s, cw_s = rel
-            usd_est = saved * ((cw_s or pin or 0) + restantes * cr_s) / 1_000_000
+            remaining, cr_s, cw_s = rel
+            usd_est = saved * ((cw_s or pin or 0) + remaining * cr_s) / 1_000_000
             r["usd_est"] += usd_est
-            r["releituras"] += restantes * saved
+            r["rereads"] += remaining * saved
         else:
             usd_est = usd_rtk or 0
             r["usd_est"] += usd_est
         base = (rtk_c or orig).split()
-        nome = " ".join(base[:2]) if base and base[0] == "rtk" else (base[0] if base else "?")
-        if nome.startswith("rtk ") and len(base) > 2 and base[1] in ("git", "cargo", "npm", "pnpm", "go", "docker", "gh", "kubectl"):
-            nome = " ".join(base[:3])
-        c = rtk_cmd[(h[:10], nome)]
+        name = " ".join(base[:2]) if base and base[0] == "rtk" else (base[0] if base else "?")
+        if name.startswith("rtk ") and len(base) > 2 and base[1] in ("git", "cargo", "npm", "pnpm", "go", "docker", "gh", "kubectl"):
+            name = " ".join(base[:3])
+        c = rtk_cmd[(h[:10], name)]
         c["cmds"] += 1
         c["input"] += inp
         c["saved"] += saved
@@ -1014,142 +1014,142 @@ def collect(progress=lambda msg: None) -> dict:
         if saved <= 0:
             c["zero"] += 1
 
-    # cobertura do RTK sobre os comandos que ele sabe filtrar
-    #  - Claude Code (Bash): o hook registra cada comando e se o reescreveu
-    #  - Claude Code (PowerShell), Codex e OpenCode: comandos do log que casaram com o RTK
-    cobertura = {"por_comando": defaultdict(lambda: [0, 0])}
+    # RTK coverage over the commands it knows how to filter
+    #  - Claude Code (Bash): the hook records every command and whether it rewrote it
+    #  - Claude Code (PowerShell), Codex and OpenCode: log commands that matched RTK
+    coverage = {"by_command": defaultdict(lambda: [0, 0])}
     for ts, _sess, tid, raw, dec in rtk["hooks"]:
-        cab = cabeca_cmd(raw)
-        if ts and cab in RTK_FILTRA:
-            a = atividade[(hour_key(ts), _agente_por_tool_id(tid))]
+        head = cmd_head(raw)
+        if ts and head in RTK_FILTERS:
+            a = activity[(hour_key(ts), _agent_from_tool_id(tid))]
             a["sup"] += 1
-            cobertura["por_comando"][cab][0] += 1
+            coverage["by_command"][head][0] += 1
             if dec in ("defer", "ask"):
                 a["sup_rtk"] += 1
-                cobertura["por_comando"][cab][1] += 1
-    for i, (ts, ag, _ws, fonte, cab) in enumerate(cmd_index.items):
-        if fonte == "hook" or (ag == "claude" and fonte == "log"):
+                coverage["by_command"][head][1] += 1
+    for i, (ts, ag, _ws, source, head) in enumerate(cmd_index.items):
+        if source == "hook" or (ag == "claude" and source == "log"):
             continue
-        if cab in RTK_FILTRA or cab in PS_EQUIVALENTE:
-            a = atividade[(hour_key(ts), ag)]
+        if head in RTK_FILTERS or head in PS_EQUIVALENT:
+            a = activity[(hour_key(ts), ag)]
             a["sup"] += 1
-            cobertura["por_comando"][cab][0] += 1
-            if i in cobertos:
+            coverage["by_command"][head][0] += 1
+            if i in covered:
                 a["sup_rtk"] += 1
-                cobertura["por_comando"][cab][1] += 1
-    cobertura["por_comando"] = dict(sorted(((k, v) for k, v in cobertura["por_comando"].items() if v[0] - v[1] > 0),
-                                           key=lambda x: -(x[1][0] - x[1][1]))[:12])
+                coverage["by_command"][head][1] += 1
+    coverage["by_command"] = dict(sorted(((k, v) for k, v in coverage["by_command"].items() if v[0] - v[1] > 0),
+                                         key=lambda x: -(x[1][0] - x[1][1]))[:12])
 
-    # --- Outras ferramentas de economia: detecta o que existe nesta máquina e lê a economia
-    # das que registram. Mesma conta em dólar do RTK (mínimo e estimativa com releituras).
-    uso_mcp: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-    for ag_f, tl in ferramentas.items():
-        for nome_f, n in tl.items():
-            m = re.match(r"mcp(?:__|:)([^_.][^.]*?)(?:__|\.)", nome_f)
+    # --- Other token-saving tools: detects what exists on this machine and reads the savings
+    # of the ones that record them. Same dollar math as RTK (minimum and estimate with re-reads).
+    mcp_usage: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for ag_f, tl in tools.items():
+        for name_f, n in tl.items():
+            m = re.match(r"mcp(?:__|:)([^_.][^.]*?)(?:__|\.)", name_f)
             if m:
-                uso_mcp[m.group(1).lower()][ag_f] += n
+                mcp_usage[m.group(1).lower()][ag_f] += n
     try:
-        detectadas = economia_mod.detectar(sinais_mod.coletar(), uso_mcp)
+        detected = savings_mod.detect(signals_mod.collect(), mcp_usage)
     except Exception:  # noqa: BLE001
-        detectadas = []
+        detected = []
     try:
-        mcp_proj = sinais_mod.mcp_por_projeto(projetos_vistos)
+        mcp_proj = signals_mod.mcp_by_project(projects_seen)
     except Exception:  # noqa: BLE001
         mcp_proj = {}
-    for f in detectadas:
+    for f in detected:
         try:
-            f["projetos"] = economia_mod.por_projeto(f["id"], ferr_pasta, cab_pasta, projetos_vistos, mcp_proj, projeto_nome)
+            f["projects"] = savings_mod.by_project(f["id"], tools_by_folder, heads_by_folder, projects_seen, mcp_proj, project_name)
         except Exception:  # noqa: BLE001
-            f["projetos"] = []
-    eco_hora: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
-    for f in detectadas:
-        f["medida"] = f["medicao"] in ("rtk", "headroom")
-        if f["medicao"] == "kompact":
-            f["ao_vivo"] = economia_mod.ler_kompact()
-            f["medida"] = bool(f["ao_vivo"])
+            f["projects"] = []
+    savings_hour: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
+    for f in detected:
+        f["measured"] = f["measurement"] in ("rtk", "headroom")
+        if f["measurement"] == "kompact":
+            f["live"] = savings_mod.read_kompact()
+            f["measured"] = bool(f["live"])
             continue
-        evs = economia_mod.eventos(f["id"], f["medicao"])
+        evs = savings_mod.events(f["id"], f["measurement"])
         if not evs:
             continue
-        f["medida"] = True
+        f["measured"] = True
         for e in evs:
-            ag_e = e["agente"]
+            ag_e = e["agent"]
             h_e = hour_key(e["ts"])
-            pin_e = preco_entrada(h_e, ag_e)
-            usd_min = e["poupados"] * pin_e / 1_000_000 if pin_e is not None else 0.0
-            rel_e = releituras(e["ts"], ag_e, e.get("pasta") or "")
-            usd_est = e["poupados"] * ((rel_e[2] or pin_e or 0) + rel_e[0] * rel_e[1]) / 1_000_000 if rel_e else usd_min
-            if e.get("usd_ferramenta") is not None:  # a própria ferramenta calculou o valor
-                usd_min = usd_est = e["usd_ferramenta"]
-            r_e = eco_hora[(h_e, ag_e, f["id"])]
-            r_e["saved"] += e["poupados"]
-            r_e["eventos"] += 1
+            pin_e = input_price(h_e, ag_e)
+            usd_min = e["saved"] * pin_e / 1_000_000 if pin_e is not None else 0.0
+            rel_e = rereads(e["ts"], ag_e, e.get("folder") or "")
+            usd_est = e["saved"] * ((rel_e[2] or pin_e or 0) + rel_e[0] * rel_e[1]) / 1_000_000 if rel_e else usd_min
+            if e.get("tool_usd") is not None:  # the tool itself computed the value
+                usd_min = usd_est = e["tool_usd"]
+            r_e = savings_hour[(h_e, ag_e, f["id"])]
+            r_e["saved"] += e["saved"]
+            r_e["events"] += 1
             r_e["usd"] += usd_min
             r_e["usd_est"] += usd_est
 
-    falhas = defaultdict(int)
-    for ts, raw, err, ok in rtk["falhas"]:
+    failures = defaultdict(int)
+    for ts, raw, err, ok in rtk["failures"]:
         base = (raw or "").split()
-        falhas[base[0] if base else "?"] += 1
+        failures[base[0] if base else "?"] += 1
 
-    decisoes = defaultdict(int)
+    decisions = defaultdict(int)
     for ts, _s, tid, raw, dec in rtk["hooks"]:
-        decisoes[dec] += 1
+        decisions[dec] += 1
 
     # --- Headroom
-    hr_eventos = hr["eventos"]
-    hr_hora = defaultdict(lambda: defaultdict(float))
-    vistos_ts = {round(e["ts"]) for e in hr_eventos}
-    todos = list(hr_eventos) + [h for h in hr.get("historico", []) if round(h["ts"]) not in vistos_ts]
-    for e in todos:
-        ag = _cliente_headroom(e["cliente"])
-        r = hr_hora[(hour_key(e["ts"]), ag, e["modelo"])]
+    hr_events = hr["events"]
+    hr_hour = defaultdict(lambda: defaultdict(float))
+    seen_ts = {round(e["ts"]) for e in hr_events}
+    everything = list(hr_events) + [h for h in hr.get("history", []) if round(h["ts"]) not in seen_ts]
+    for e in everything:
+        ag = _headroom_client(e["client"])
+        r = hr_hour[(hour_key(e["ts"]), ag, e["model"])]
         r["reqs"] += 1
-        r["saved"] += e["economia"]
-        if e.get("antes"):
-            r["antes"] += e["antes"]
-            r["saved_medido"] += e["economia"]
+        r["saved"] += e["saved"]
+        if e.get("before"):
+            r["before"] += e["before"]
+            r["saved_measured"] += e["saved"]
         r["usd"] += e.get("usd", 0)
 
     # --- Ollama
-    ol_hora = defaultdict(lambda: defaultdict(float))
+    ol_hour = defaultdict(lambda: defaultdict(float))
     for ts, endpoint, status, dur in ol["reqs"]:
-        r = ol_hora[(hour_key(ts), endpoint)]
+        r = ol_hour[(hour_key(ts), endpoint)]
         r["reqs"] += 1
-        r["segundos"] += dur
+        r["seconds"] += dur
         if status >= 400:
-            r["erros"] += 1
+            r["errors"] += 1
 
-    # --- Graphify: projetos com grafo e chamadas
-    graphify = {"projetos": [], "chamadas": {}}
-    for p in sorted(projetos_vistos):
+    # --- Graphify: projects with a graph and calls
+    graphify = {"projects": [], "calls": {}}
+    for p in sorted(projects_seen):
         if p and os.path.exists(os.path.join(p, "graphify-out", "graph.json")):
             try:
-                tam = os.path.getsize(os.path.join(p, "graphify-out", "graph.json"))
+                size = os.path.getsize(os.path.join(p, "graphify-out", "graph.json"))
             except OSError:
-                tam = 0
-            if any(x["bytes"] == tam and x["nome"] == projeto_nome(p) for x in graphify["projetos"]):
-                continue  # mesma pasta vista por outro caminho
-            graphify["projetos"].append({"pasta": p, "nome": projeto_nome(p), "bytes": tam,
-                                          "atualizado": os.path.getmtime(os.path.join(p, "graphify-out", "graph.json"))})
-    for ag, tl in ferramentas.items():
+                size = 0
+            if any(x["bytes"] == size and x["name"] == project_name(p) for x in graphify["projects"]):
+                continue  # same folder seen through another path
+            graphify["projects"].append({"folder": p, "name": project_name(p), "bytes": size,
+                                         "updated": os.path.getmtime(os.path.join(p, "graphify-out", "graph.json"))})
+    for ag, tl in tools.items():
         n = sum(c for name, c in tl.items() if "graphify" in name.lower())
-        graphify["chamadas"][ag] = n + cabecas.get(ag, {}).get("graphify", 0)
-    graphify["chamadas"]["shell"] = sum(1 for r in rtk["rows"] if r[1].strip().lower().startswith("graphify"))
+        graphify["calls"][ag] = n + heads.get(ag, {}).get("graphify", 0)
+    graphify["calls"]["shell"] = sum(1 for r in rtk["rows"] if r[1].strip().lower().startswith("graphify"))
 
-    # --- Limites do Codex
-    limites_codex.sort(key=lambda x: x[0])
-    # --- Assinatura Claude (vinda do Headroom, quando ele está rodando)
-    assinatura = hr.get("assinatura")
-    # --- Limites oficiais do Claude (endpoint de uso da Anthropic) e janelas unificadas
+    # --- Codex limits
+    codex_limits.sort(key=lambda x: x[0])
+    # --- Claude subscription (from Headroom, when it is running)
+    subscription = hr.get("subscription")
+    # --- Official Claude limits (Anthropic usage endpoint) and unified windows
     try:
-        claude_api = limites_mod.claude()
+        claude_api = limits_mod.claude()
     except Exception as e:  # noqa: BLE001
-        claude_api = {"ok": False, "erro": type(e).__name__}
+        claude_api = {"ok": False, "error": type(e).__name__}
     try:
-        codex_api = limites_mod.codex()
+        codex_api = limits_mod.codex()
     except Exception as e:  # noqa: BLE001
-        codex_api = {"ok": False, "erro": type(e).__name__}
+        codex_api = {"ok": False, "error": type(e).__name__}
 
     def rows(d: dict, cols: list[str]):
         out = []
@@ -1159,61 +1159,61 @@ def collect(progress=lambda msg: None) -> dict:
             out.append(item)
         return out
 
-    sess_list = sorted(sessoes.values(), key=lambda s: s["fim"], reverse=True)
+    sess_list = sorted(sessions.values(), key=lambda s: s["end"], reverse=True)
     for s in sess_list:
-        s["modelo"] = max(s["modelos"], key=s["modelos"].get) if s["modelos"] else "?"
-        del s["modelos"]
+        s["model"] = max(s["models"], key=s["models"].get) if s["models"] else "?"
+        del s["models"]
 
     snapshot = {
-        "gerado_em": time.time(),
-        "duracao_coleta_s": round(time.time() - t0, 1),
-        "agentes": AGENTES,
-        "fontes": {
-            "claude": {"ok": PATHS["claude"].exists(), "arquivos": sum(1 for k in cache["files"] if k.startswith("claude:"))},
-            "codex": {"ok": PATHS["codex"].exists(), "arquivos": sum(1 for k in cache["files"] if k.startswith("codex:"))},
-            "opencode": {"ok": oc["ok"], "erro": oc["erro"], "mensagens": len(oc["msgs"])},
-            "ollama": {"ok": ol["ok"], "erro": ol["erro"], "requisicoes": len(ol["reqs"]), "modelos": ol["modelos"]},
-            "rtk": {"ok": rtk["ok"], "erro": rtk["erro"], "comandos": len(rtk["rows"])},
-            "headroom": {"ok": hr["ok"], "erro": hr["erro"], "eventos": len(todos)},
+        "generated_at": time.time(),
+        "collect_duration_s": round(time.time() - t0, 1),
+        "agents": AGENTS,
+        "sources": {
+            "claude": {"ok": PATHS["claude"].exists(), "files": sum(1 for k in cache["files"] if k.startswith("claude:"))},
+            "codex": {"ok": PATHS["codex"].exists(), "files": sum(1 for k in cache["files"] if k.startswith("codex:"))},
+            "opencode": {"ok": oc["ok"], "error": oc["error"], "messages": len(oc["msgs"])},
+            "ollama": {"ok": ol["ok"], "error": ol["error"], "requests": len(ol["reqs"]), "models": ol["models"]},
+            "rtk": {"ok": rtk["ok"], "error": rtk["error"], "commands": len(rtk["rows"])},
+            "headroom": {"ok": hr["ok"], "error": hr["error"], "events": len(everything)},
         },
-        "uso": rows(uso_hora, ["hora", "agente", "modelo"]),
-        "uso_projetos": rows(uso_proj, ["dia", "agente", "projeto"]),
-        "sessoes": sess_list[:400],
+        "usage": rows(usage_hour, ["hour", "agent", "model"]),
+        "project_usage": rows(usage_proj, ["day", "agent", "project"]),
+        "sessions": sess_list[:400],
         "rtk": {
-            "hora": rows(rtk_hora, ["hora", "agente"]),
-            "atividade": rows(atividade, ["hora", "agente"]),
-            "comandos": rows(rtk_cmd, ["dia", "comando"]),
-            "falhas": sorted(([k, v] for k, v in falhas.items()), key=lambda x: -x[1])[:15],
-            "falhas_total": len(rtk["falhas"]),
-            "decisoes_hook": dict(decisoes),
-            "atribuicao": dict(metodo_atrib),
-            "cobertura": cobertura,
+            "hourly": rows(rtk_hour, ["hour", "agent"]),
+            "activity": rows(activity, ["hour", "agent"]),
+            "commands": rows(rtk_cmd, ["day", "command"]),
+            "failures": sorted(([k, v] for k, v in failures.items()), key=lambda x: -x[1])[:15],
+            "failures_total": len(rtk["failures"]),
+            "hook_decisions": dict(decisions),
+            "attribution": dict(attribution_method),
+            "coverage": coverage,
         },
         "headroom": {
-            "hora": rows(hr_hora, ["hora", "agente", "modelo"]),
+            "hourly": rows(hr_hour, ["hour", "agent", "model"]),
             "lifetime": hr["lifetime"],
         },
-        "ollama": {"hora": rows(ol_hora, ["hora", "endpoint"]), "modelos": ol["modelos"], "carregados": ol.get("carregados", [])},
-        "ferramentas": {ag: dict(sorted(tl.items(), key=lambda x: -x[1])[:40]) for ag, tl in ferramentas.items()},
-        "limites": {
+        "ollama": {"hourly": rows(ol_hour, ["hour", "endpoint"]), "models": ol["models"], "loaded": ol.get("loaded", [])},
+        "tools": {ag: dict(sorted(tl.items(), key=lambda x: -x[1])[:40]) for ag, tl in tools.items()},
+        "limits": {
             "codex": [
-                {"ts": l[0], "p5h": l[1], "janela_min": l[2], "reset_5h": l[3], "psemana": l[4], "reset_semana": l[6], "plano": l[7]}
-                for l in limites_codex
+                {"ts": l[0], "p5h": l[1], "window_min": l[2], "reset_5h": l[3], "pweek": l[4], "reset_week": l[6], "plan": l[7]}
+                for l in codex_limits
             ][-3000:],
-            "claude": assinatura,
+            "claude": subscription,
             "claude_api": claude_api,
             "codex_api": codex_api,
         },
         "graphify": graphify,
-        "economia": {"ferramentas": detectadas, "hora": rows(eco_hora, ["hora", "agente", "ferramenta"])},
-        "comandos_shell": {ag: dict(sorted(v.items(), key=lambda x: -x[1])[:15]) for ag, v in cabecas.items()},
-        "precos": {
-            "fontes": precos_mod.info(),
-            "sem_preco": sorted({m for (_h, _a, m) in uso_hora if m not in ("?", "") and not preco_modelo(m)}),
-            "por_modelo": {m: dict(zip(("preco", "fonte"), precos_mod.preco(m))) for m in sorted({m for (_h, _a, m) in uso_hora})},
+        "savings": {"tools": detected, "hourly": rows(savings_hour, ["hour", "agent", "tool"])},
+        "shell_commands": {ag: dict(sorted(v.items(), key=lambda x: -x[1])[:15]) for ag, v in heads.items()},
+        "prices": {
+            "sources": prices_mod.info(),
+            "unpriced": sorted({m for (_h, _a, m) in usage_hour if m not in ("?", "") and not model_price(m)}),
+            "by_model": {m: dict(zip(("price", "source"), prices_mod.price(m))) for m in sorted({m for (_h, _a, m) in usage_hour})},
         },
     }
-    snapshot["limites"]["janelas"] = limites_mod.janelas(snapshot["limites"]["codex"], claude_api, codex_api)
+    snapshot["limits"]["windows"] = limits_mod.windows(snapshot["limits"]["codex"], claude_api, codex_api)
     return snapshot
 
 
@@ -1221,6 +1221,6 @@ if __name__ == "__main__":
     import sys
 
     snap = collect(lambda m: print(m, file=sys.stderr))
-    print(json.dumps({k: (len(v) if isinstance(v, list) else v) for k, v in snap.items() if k in ("uso", "uso_projetos", "sessoes")}))
-    print("fontes:", json.dumps(snap["fontes"], ensure_ascii=False))
-    print("coleta em", snap["duracao_coleta_s"], "s")
+    print(json.dumps({k: (len(v) if isinstance(v, list) else v) for k, v in snap.items() if k in ("usage", "project_usage", "sessions")}))
+    print("sources:", json.dumps(snap["sources"], ensure_ascii=False))
+    print("collected in", snap["collect_duration_s"], "s")
