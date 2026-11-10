@@ -2,7 +2,7 @@
 
 Usage:  python server.py [--port 8765] [--interval 60] [--no-browser] [--demo]
 
---demo shows fictional data (port 8766 by default); see demo.py.
+--demo shows fictional data (port 8780 by default); see demo.py.
 """
 from __future__ import annotations
 
@@ -17,7 +17,15 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 if __name__ == "__main__" and "--demo" in sys.argv[1:]:
+    import socket
+
     import demo
+    _a = sys.argv[1:]
+    _port = int(_a[_a.index("--port") + 1]) if "--port" in _a[:-1] else demo.PORT
+    with socket.socket() as _s:  # check the port BEFORE rebuilding .cache-demo, which a running demo is using
+        _s.settimeout(0.5)
+        if _s.connect_ex(("127.0.0.1", _port)) == 0:
+            sys.exit(f"Port {_port} is already in use. Choose another one with --port, e.g. --port {_port + 1}")
     demo.setup()  # fictional data; must run before the modules below read their paths
 
 import ai  # noqa: E402
@@ -26,6 +34,7 @@ import collector  # noqa: E402
 import prices  # noqa: E402
 import runtime  # noqa: E402
 import score  # noqa: E402
+import updater  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent / "static"
 CONFIG = runtime.CACHE / "config.json"
@@ -172,6 +181,8 @@ class Handler(SimpleHTTPRequestHandler):
             body = {"available": ai.available(), "history": ai.history()[:10], "state": ai.state,
                     "config": public_config().get("ai") or {}}
             return self._json(json.dumps(body, ensure_ascii=False).encode("utf-8"))
+        if self.path.startswith("/api/update"):
+            return self._json(json.dumps(updater.check(force="force=1" in self.path)).encode("utf-8"))
         if self.path.startswith("/api/status"):
             body = json.dumps({"status": state["status"], "collecting": state["collecting"], "error": state["error"]}, ensure_ascii=False)
             return self._json(body.encode("utf-8"))
@@ -205,6 +216,11 @@ class Handler(SimpleHTTPRequestHandler):
                 request.set()  # recomputes the values with the new table
             threading.Thread(target=job, daemon=True).start()
             return self._json(b'{"ok":true}', 202)
+        if self.path.startswith("/api/update/apply"):
+            try:
+                return self._json(json.dumps(updater.apply()).encode("utf-8"))
+            except Exception as e:  # noqa: BLE001
+                return self._json(json.dumps({"error": str(e)}).encode("utf-8"), 409)
         if self.path.startswith("/api/refresh"):
             request.set()
             return self._json(b'{"ok":true}')
@@ -224,16 +240,21 @@ def _demo_mask(body: bytes) -> bytes:
     return demo.mask(body.decode("utf-8")).encode("utf-8")
 
 
-def _port_answers(port: int) -> bool:
-    import socket
-    with socket.socket() as s:
-        s.settimeout(0.5)
-        return s.connect_ex(("127.0.0.1", port)) == 0
+class Server(ThreadingHTTPServer):
+    """Binds the port exclusively. Python's default (SO_REUSEADDR) lets a second server take a
+    port that is already in use on Windows, and requests then reach the wrong program."""
+    allow_reuse_address = False
+
+    def server_bind(self):
+        import socket
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
 
 def start(port: int = 8765, interval: int = 60) -> ThreadingHTTPServer:
     """Starts the server and the collection in background threads. Used by the tray app."""
-    srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    srv = Server(("127.0.0.1", port), Handler)
     cache_migration.migrate()  # only once the port is ours: no other instance is using .cache/
     threading.Thread(target=loop, args=(interval,), daemon=True).start()
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -242,17 +263,16 @@ def start(port: int = 8765, interval: int = 60) -> ThreadingHTTPServer:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=None, help="default 8765 (8766 with --demo)")
+    ap.add_argument("--port", type=int, default=None, help="default 8765 (8780 with --demo)")
     ap.add_argument("--interval", type=int, default=60, help="seconds between collections")
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--demo", action="store_true", help="fictional data, for screenshots and trying the panel out")
     args = ap.parse_args()
-    port = args.port or (8766 if args.demo else 8765)
-    if args.demo and _port_answers(port):
-        # Windows lets a second server bind a busy port, and the browser would reach the other one
-        sys.exit(f"Port {port} is already in use. Choose another one: python server.py --demo --port 8767")
-
-    srv =ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    port = args.port or (8780 if args.demo else 8765)
+    try:
+        srv = Server(("127.0.0.1", port), Handler)
+    except OSError:
+        sys.exit(f"Port {port} is already in use. Choose another one with --port, e.g. --port {port + 1}")
     cache_migration.migrate()  # only once the port is ours: no other instance is using .cache/
     threading.Thread(target=loop, args=(args.interval,), daemon=True).start()
     url = f"http://127.0.0.1:{port}"

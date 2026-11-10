@@ -1237,6 +1237,8 @@ async function loadConfig() {
   document.getElementById("demo-badge").hidden = !S.config?.demo;
   renderSubscriptions();
   initLimitsSetting();
+  renderDonate();
+  renderUpdate();
   renderAll();
 }
 
@@ -1269,6 +1271,89 @@ function renderSubscriptions() {
       renderAll();
     }
   };
+}
+
+// ---------------------------------------------------------------------------
+// updates and donations (Settings)
+// ---------------------------------------------------------------------------
+const REPO_URL = "https://github.com/Baeta78/token-economy";
+// Official donation addresses. Empty ones are hidden. Only the addresses in the official repository are ours.
+const DONATE = {
+  sponsors: "https://github.com/sponsors/Baeta78",
+  lightning: "",
+  monero: "",
+};
+
+async function loadUpdate(force) {
+  const btn = document.getElementById("btn-update-check");
+  if (btn) btn.disabled = true;
+  try { S.update = await (await fetch("/api/update" + (force ? "?force=1" : ""), { cache: "no-store" })).json(); }
+  catch (e) { S.update = { error: String(e) }; }
+  if (btn) btn.disabled = false;
+  renderUpdate();
+}
+
+function renderUpdate(msg) {
+  const el = document.getElementById("update-box");
+  if (!el) return;
+  const u = S.update;
+  if (!u) { el.innerHTML = `<p class="muted">${esc(t("header.loading"))}</p>`; return; }
+  let html = `<p><strong>${esc(t("update.current", { v: u.current }))}</strong> · `;
+  if (u.demo) html += esc(t("update.demo"));
+  else if (u.error) html += esc(t("update.error", { e: u.error }));
+  else if (!u.latest) html += esc(t("update.none"));
+  else if (!u.newer) html += esc(t("update.uptodate"));
+  else html += `<strong>${esc(t("update.available", { v: u.latest }))}</strong>`;
+  html += "</p>";
+  if (u.newer && !u.demo) {
+    if (u.notes) html += `<details><summary>${esc(t("update.notes"))}</summary><pre class="update-notes">${esc(u.notes)}</pre></details>`;
+    html += `<p class="explain">${esc(t(u.method === "git" ? "update.via.git" : "update.via.zip"))}</p>`
+      + `<button class="btn primary" id="btn-update-install">${esc(t("update.install"))}</button> `
+      + (u.url ? `<a class="btn" href="${esc(u.url)}" target="_blank" rel="noopener">GitHub</a>` : "");
+  }
+  if (msg) html += `<p class="update-msg">${esc(msg)}</p>`;
+  el.innerHTML = html;
+  const b = document.getElementById("btn-update-install");
+  if (b) b.onclick = async () => {
+    b.disabled = true;
+    b.textContent = t("update.installing");
+    let r, body;
+    try { r = await post("/api/update/apply"); body = await r.json(); } catch (e) { body = { error: String(e) }; }
+    if (r?.ok && body.updated) { S.update = { ...S.update, newer: false }; renderUpdate(t("update.done", { v: body.version })); }
+    else renderUpdate(body.error === "local_changes" ? t("update.local_changes") : t("update.failed", { e: body.error || "?" }));
+  };
+}
+
+let qrLib = null;
+function loadQR() {
+  return qrLib || (qrLib = new Promise((ok, fail) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+    s.onload = ok; s.onerror = fail;
+    document.head.appendChild(s);
+  }));
+}
+
+function renderDonate() {
+  const el = document.getElementById("donate-box");
+  if (!el) return;
+  const coins = [["lightning", "lightning:"], ["monero", "monero:"]].filter(([k]) => DONATE[k]);
+  el.innerHTML = `<div class="donate-links">`
+    + (DONATE.sponsors ? `<a class="btn primary" href="${esc(DONATE.sponsors)}" target="_blank" rel="noopener">💛 ${esc(t("donate.sponsors"))}</a> ` : "")
+    + `<a class="btn" href="${REPO_URL}" target="_blank" rel="noopener">⭐ ${esc(t("donate.star"))}</a></div>`
+    + coins.map(([k]) => `<div class="donate-coin">
+        <div class="donate-qr" id="qr-${k}"></div>
+        <div><div class="donate-label">${esc(t("donate." + k))}</div>
+          <code class="donate-addr">${esc(DONATE[k])}</code>
+          <button class="btn" data-copy="${k}">${esc(t("donate.copy"))}</button></div>
+      </div>`).join("");
+  el.querySelectorAll("[data-copy]").forEach((b) => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(DONATE[b.dataset.copy]); b.textContent = t("donate.copied"); } catch { /* no clipboard */ }
+  });
+  if (coins.length) loadQR().then(() => coins.forEach(([k, scheme]) => {
+    const box = document.getElementById("qr-" + k);
+    if (box && !box.childElementCount) new QRCode(box, { text: scheme + DONATE[k], width: 132, height: 132, correctLevel: QRCode.CorrectLevel.M });
+  })).catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -1352,6 +1437,8 @@ function initLanguage() {
     translatePage();
     buildAIForm();
     renderSubscriptions();
+    renderDonate();
+    renderUpdate();
     renderAll();
   };
   translatePage();
@@ -1408,4 +1495,5 @@ setInterval(async () => {
 }, 60000);
 
 // the settings (subscriptions, options) arrive before the first draw
-loadConfig().finally(() => { load(); loadAI(); });
+loadConfig().finally(() => { load(); loadAI(); loadUpdate(); });
+document.getElementById("btn-update-check").onclick = () => loadUpdate(true);

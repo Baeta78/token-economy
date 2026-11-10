@@ -1,6 +1,6 @@
 """Demo mode: the dashboard with realistic but entirely fictional data.
 
-    python server.py --demo            (opens on port 8766)
+    python server.py --demo            (opens on port 8780)
 
 Used for the README screenshots and by contributors who have no agent history.
 
@@ -48,7 +48,7 @@ CACHE = ROOT / "cache"
 BIN = HOME / ".local" / "bin"
 MARKER = ROOT / ".token-economy-demo"
 STATE = ROOT / "limits_state.json"
-PORT = 8766
+PORT = 8780
 SHOWN_HOME = "C:\\Users\\dev"  # how the fake home appears on screen
 CLAUDE_PLAN = "Max"
 SEED = 20261110

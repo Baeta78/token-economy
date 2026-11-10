@@ -655,3 +655,41 @@ Object.assign(TXT.es, {
 });
 
 LANG = detectLanguage();
+
+// updates and donations (Settings)
+Object.assign(TXT.pt, {
+  "update.title": "Atualizações", "update.check": "Procurar atualizações", "update.current": "Versão {v}",
+  "update.uptodate": "Você está na versão mais recente.", "update.none": "Ainda não há versão publicada no GitHub.",
+  "update.available": "Versão {v} disponível.", "update.notes": "Novidades", "update.install": "Atualizar agora",
+  "update.installing": "Atualizando…", "update.done": "Atualizado para a versão {v}. Reinicie o Token Economy (ícone da bandeja > Sair e abra de novo) para usar a versão nova.",
+  "update.error": "Não deu para verificar agora ({e}).", "update.local_changes": "Você alterou arquivos do app; atualize com git pull no terminal.",
+  "update.demo": "No modo demo não há atualização.", "update.failed": "A atualização falhou: {e}",
+  "update.via.git": "Instalação via git: atualiza para a versão publicada (tag).", "update.via.zip": "Instalação via ZIP: baixa a versão do GitHub e mantém suas configurações (.cache).",
+  "donate.title": "Apoie o projeto", "donate.explain": "O Token Economy é gratuito. Se ele te ajuda, qualquer apoio ajuda a mantê-lo. Uma estrela no GitHub e sugestões também valem muito.",
+  "donate.sponsors": "Apoiar no GitHub Sponsors", "donate.star": "Dar uma estrela no GitHub", "donate.copy": "Copiar", "donate.copied": "Copiado",
+  "donate.lightning": "Lightning (sats)", "donate.monero": "Monero (XMR)",
+});
+Object.assign(TXT.en, {
+  "update.title": "Updates", "update.check": "Check for updates", "update.current": "Version {v}",
+  "update.uptodate": "You have the latest version.", "update.none": "No version has been published on GitHub yet.",
+  "update.available": "Version {v} is available.", "update.notes": "What's new", "update.install": "Update now",
+  "update.installing": "Updating…", "update.done": "Updated to version {v}. Restart Token Economy (tray icon > Quit, then open it again) to use it.",
+  "update.error": "Couldn't check right now ({e}).", "update.local_changes": "You changed the app's files; update with git pull in a terminal.",
+  "update.demo": "Updates are off in demo mode.", "update.failed": "The update failed: {e}",
+  "update.via.git": "Installed with git: updates to the published version (tag).", "update.via.zip": "Installed from a ZIP: downloads the version from GitHub and keeps your settings (.cache).",
+  "donate.title": "Support the project", "donate.explain": "Token Economy is free. If it helps you, any support helps keep it going. A star on GitHub and suggestions count a lot too.",
+  "donate.sponsors": "Sponsor on GitHub", "donate.star": "Star on GitHub", "donate.copy": "Copy", "donate.copied": "Copied",
+  "donate.lightning": "Lightning (sats)", "donate.monero": "Monero (XMR)",
+});
+Object.assign(TXT.es, {
+  "update.title": "Actualizaciones", "update.check": "Buscar actualizaciones", "update.current": "Versión {v}",
+  "update.uptodate": "Tienes la versión más reciente.", "update.none": "Todavía no hay ninguna versión publicada en GitHub.",
+  "update.available": "La versión {v} está disponible.", "update.notes": "Novedades", "update.install": "Actualizar ahora",
+  "update.installing": "Actualizando…", "update.done": "Actualizado a la versión {v}. Reinicia Token Economy (ícono de la bandeja > Salir y ábrelo de nuevo) para usarla.",
+  "update.error": "No se pudo verificar ahora ({e}).", "update.local_changes": "Cambiaste archivos de la app; actualiza con git pull en una terminal.",
+  "update.demo": "En el modo demo no hay actualizaciones.", "update.failed": "La actualización falló: {e}",
+  "update.via.git": "Instalado con git: actualiza a la versión publicada (tag).", "update.via.zip": "Instalado desde un ZIP: descarga la versión de GitHub y conserva tu configuración (.cache).",
+  "donate.title": "Apoya el proyecto", "donate.explain": "Token Economy es gratuito. Si te ayuda, cualquier apoyo ayuda a mantenerlo. Una estrella en GitHub y las sugerencias también cuentan mucho.",
+  "donate.sponsors": "Patrocinar en GitHub Sponsors", "donate.star": "Dar una estrella en GitHub", "donate.copy": "Copiar", "donate.copied": "Copiado",
+  "donate.lightning": "Lightning (sats)", "donate.monero": "Monero (XMR)",
+});

@@ -310,3 +310,13 @@ td.truncate { max-width: 340px; overflow: hidden; text-overflow: ellipsis; text-
 .agent-group:last-child { margin-bottom: 0; }
 #summary-limits .agent-head { margin-top: 12px; }
 #summary-limits .agent-head:first-child { margin-top: 0; }
+
+/* updates and donations (Settings) */
+.update-notes { white-space: pre-wrap; font-size: 12.5px; max-height: 240px; overflow: auto; background: var(--surface-2); padding: 10px; border-radius: 8px; }
+.update-msg { margin-top: 10px; font-weight: 600; }
+.donate-links { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.donate-links a { text-decoration: none; }
+.donate-coin { display: flex; gap: 14px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+.donate-qr { background: #fff; padding: 6px; border-radius: 8px; line-height: 0; }
+.donate-label { font-weight: 600; margin-bottom: 4px; }
+.donate-addr { display: block; word-break: break-all; font-size: 12px; margin-bottom: 6px; max-width: 520px; }
