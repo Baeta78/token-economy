@@ -1408,6 +1408,7 @@ const REPO_URL = "https://github.com/Baeta78/token-economy";
 // Official donation addresses. Empty ones are hidden. Only the addresses in the official repository are ours.
 const DONATE = {
   sponsors: "https://github.com/sponsors/Baeta78",
+  lnaddress: "twilightsunset24638@getalby.com",  // Lightning Address (LNURL): almost every wallet pays it
   lightning: "lno1pgqppmsrse80qf0aara4slvcjxrvu6j2rp5ftmjy4yntlsmsutpkvkt6878s8rytce47qg38ct5a66vhqlakc3qnyfn6838lrxcem0x5p9qx2x36qgp9gyxfmkfdlc8cgve57jyc727ayksec6v99y77y759fzvcxmyrvhgqxwwxyqwwan3edglpe66hwlevdp65w5d2nk0ulmlpkjwgs5eed8exdjkax4d32djd4zju2zcfmz72h5qnhw8qyafldfxfsmxteqy4jrafst24q8ap5wshgqkhcfkfldn5geqcxjruqqeg2985wkk8heuw2k2xrlhlvapgrtsplfuy72z639w2g8arzgseqmcyn8wd49yu2ylsr3wr2kw6ka7rswrs",
   monero: "833KcUPVCZvFbjDnNeMP8UDqbJjtnP29tPLxtsQLENiWQoPhrKQpBR9McQTemcDEAffFhtTNkJeRSWmLb4sGScPa3YLVBGa",
 };
@@ -1465,7 +1466,7 @@ function loadQR() {
 function renderDonate() {
   const el = document.getElementById("donate-box");
   if (!el) return;
-  const coins = [["lightning", "lightning:"], ["monero", "monero:"]].filter(([k]) => DONATE[k]);
+  const coins = [["lnaddress", "lightning:"], ["lightning", "lightning:"], ["monero", "monero:"]].filter(([k]) => DONATE[k]);
   el.innerHTML = `<div class="donate-links">`
     + (DONATE.sponsors ? `<a class="btn primary" href="${esc(DONATE.sponsors)}" target="_blank" rel="noopener">💛 ${esc(t("donate.sponsors"))}</a> ` : "")
     + `<a class="btn" href="${REPO_URL}" target="_blank" rel="noopener">⭐ ${esc(t("donate.star"))}</a></div>`

@@ -179,7 +179,9 @@ Token Economy es gratuito y se mantiene en el tiempo libre. Si te ayuda a ahorra
 - 🐛 **Abre issues y pull requests**: herramientas, agentes y traducciones nuevas son bienvenidos ([CONTRIBUTING.md](CONTRIBUTING.md)).
 - 💛 **Dona**: [GitHub Sponsors](https://github.com/sponsors/Baeta78) (tarjeta, en todo el mundo), ⚡ Lightning o ɱ Monero:
 
-⚡ **Lightning** (BOLT12):
+⚡ **Lightning Address** (cualquier billetera): `twilightsunset24638@getalby.com`
+
+⚡ **Lightning BOLT12** (Phoenix, Zeus y otras):
 
 ```
 lno1pgqppmsrse80qf0aara4slvcjxrvu6j2rp5ftmjy4yntlsmsutpkvkt6878s8rytce47qg38ct5a66vhqlakc3qnyfn6838lrxcem0x5p9qx2x36qgp9gyxfmkfdlc8cgve57jyc727ayksec6v99y77y759fzvcxmyrvhgqxwwxyqwwan3edglpe66hwlevdp65w5d2nk0ulmlpkjwgs5eed8exdjkax4d32djd4zju2zcfmz72h5qnhw8qyafldfxfsmxteqy4jrafst24q8ap5wshgqkhcfkfldn5geqcxjruqqeg2985wkk8heuw2k2xrlhlvapgrtsplfuy72z639w2g8arzgseqmcyn8wd49yu2ylsr3wr2kw6ka7rswrs

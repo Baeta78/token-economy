@@ -673,7 +673,7 @@ Object.assign(TXT.pt, {
   "update.via.git": "Instalação via git: atualiza para a versão publicada (tag).", "update.via.zip": "Instalação via ZIP: baixa a versão do GitHub e mantém suas configurações (.cache).",
   "donate.title": "Apoie o projeto", "donate.explain": "O Token Economy é gratuito. Se ele te ajuda, qualquer apoio ajuda a mantê-lo. Uma estrela no GitHub e sugestões também valem muito.",
   "donate.sponsors": "Apoiar no GitHub Sponsors", "donate.star": "Dar uma estrela no GitHub", "donate.copy": "Copiar", "donate.copied": "Copiado",
-  "donate.lightning": "Lightning (sats, BOLT12)", "donate.monero": "Monero (XMR)",
+  "donate.lnaddress": "Lightning Address (qualquer carteira)", "donate.lightning": "Lightning BOLT12 (Phoenix, Zeus e outras)", "donate.monero": "Monero (XMR)",
 });
 Object.assign(TXT.en, {
   "update.title": "Updates", "update.check": "Check for updates", "update.current": "Version {v}",
@@ -685,7 +685,7 @@ Object.assign(TXT.en, {
   "update.via.git": "Installed with git: updates to the published version (tag).", "update.via.zip": "Installed from a ZIP: downloads the version from GitHub and keeps your settings (.cache).",
   "donate.title": "Support the project", "donate.explain": "Token Economy is free. If it helps you, any support helps keep it going. A star on GitHub and suggestions count a lot too.",
   "donate.sponsors": "Sponsor on GitHub", "donate.star": "Star on GitHub", "donate.copy": "Copy", "donate.copied": "Copied",
-  "donate.lightning": "Lightning (sats, BOLT12)", "donate.monero": "Monero (XMR)",
+  "donate.lnaddress": "Lightning Address (any wallet)", "donate.lightning": "Lightning BOLT12 (Phoenix, Zeus and others)", "donate.monero": "Monero (XMR)",
 });
 Object.assign(TXT.es, {
   "update.title": "Actualizaciones", "update.check": "Buscar actualizaciones", "update.current": "Versión {v}",
@@ -697,7 +697,7 @@ Object.assign(TXT.es, {
   "update.via.git": "Instalado con git: actualiza a la versión publicada (tag).", "update.via.zip": "Instalado desde un ZIP: descarga la versión de GitHub y conserva tu configuración (.cache).",
   "donate.title": "Apoya el proyecto", "donate.explain": "Token Economy es gratuito. Si te ayuda, cualquier apoyo ayuda a mantenerlo. Una estrella en GitHub y las sugerencias también cuentan mucho.",
   "donate.sponsors": "Patrocinar en GitHub Sponsors", "donate.star": "Dar una estrella en GitHub", "donate.copy": "Copiar", "donate.copied": "Copiado",
-  "donate.lightning": "Lightning (sats, BOLT12)", "donate.monero": "Monero (XMR)",
+  "donate.lnaddress": "Lightning Address (cualquier billetera)", "donate.lightning": "Lightning BOLT12 (Phoenix, Zeus y otras)", "donate.monero": "Monero (XMR)",
 });
 
 // ---------------------------------------------------------------- tools you can add
