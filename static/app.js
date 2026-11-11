@@ -1409,7 +1409,7 @@ const REPO_URL = "https://github.com/Baeta78/token-economy";
 const DONATE = {
   sponsors: "https://github.com/sponsors/Baeta78",
   lightning: "lno1pgqppmsrse80qf0aara4slvcjxrvu6j2rp5ftmjy4yntlsmsutpkvkt6878s8rytce47qg38ct5a66vhqlakc3qnyfn6838lrxcem0x5p9qx2x36qgp9gyxfmkfdlc8cgve57jyc727ayksec6v99y77y759fzvcxmyrvhgqxwwxyqwwan3edglpe66hwlevdp65w5d2nk0ulmlpkjwgs5eed8exdjkax4d32djd4zju2zcfmz72h5qnhw8qyafldfxfsmxteqy4jrafst24q8ap5wshgqkhcfkfldn5geqcxjruqqeg2985wkk8heuw2k2xrlhlvapgrtsplfuy72z639w2g8arzgseqmcyn8wd49yu2ylsr3wr2kw6ka7rswrs",
-  monero: "47QjexarEB5HzVQKk3socUMLG1mJkAYnpdWKnL6taVVFfcPsHGTRVirA527n2iT2ZgRGdZFGimbsXEoRAQxd1fuR6v4HCFW",
+  monero: "833KcUPVCZvFbjDnNeMP8UDqbJjtnP29tPLxtsQLENiWQoPhrKQpBR9McQTemcDEAffFhtTNkJeRSWmLb4sGScPa3YLVBGa",
 };
 
 async function loadUpdate(force) {

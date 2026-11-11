@@ -188,7 +188,7 @@ lno1pgqppmsrse80qf0aara4slvcjxrvu6j2rp5ftmjy4yntlsmsutpkvkt6878s8rytce47qg38ct5a
 ɱ **Monero**:
 
 ```
-47QjexarEB5HzVQKk3socUMLG1mJkAYnpdWKnL6taVVFfcPsHGTRVirA527n2iT2ZgRGdZFGimbsXEoRAQxd1fuR6v4HCFW
+833KcUPVCZvFbjDnNeMP8UDqbJjtnP29tPLxtsQLENiWQoPhrKQpBR9McQTemcDEAffFhtTNkJeRSWmLb4sGScPa3YLVBGa
 ```
 
 Solo las direcciones de este repositorio oficial son nuestras.
