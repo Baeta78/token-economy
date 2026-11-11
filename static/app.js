@@ -325,8 +325,22 @@ function renderOverview(F) {
 // ---------------------------------------------------------------------------
 // limits
 // ---------------------------------------------------------------------------
+// windows of up to 24 h (the 5 h ones) of every agent, grouped by reset, from the unified history
+function allShortWindows() {
+  const out = [];
+  for (const x of S.data.limits.series || []) {
+    if (!x.duration_h || x.duration_h > 24) continue;
+    const L = x.points.map((p) => ({ ts: p[0], p5h: p[1], reset_5h: p[2], window_min: x.duration_h * 60 }));
+    for (const j of groupWindows(L)) out.push({ ...j, agent: x.agent, id: x.id });
+  }
+  return out;
+}
 function codexWindows() {
-  const L = S.data.limits.codex || [];
+  const s = (S.data.limits.series || []).find((x) => x.agent === "codex" && x.id === "five_hour");
+  return groupWindows(s ? s.points.map((p) => ({ ts: p[0], p5h: p[1], reset_5h: p[2], window_min: s.duration_h * 60 }))
+    : S.data.limits.codex || []);
+}
+function groupWindows(L) {
   const win = new Map();
   for (const l of L) {
     if (l.reset_5h == null || l.p5h == null) continue;
@@ -366,48 +380,68 @@ function renderLimits() {
   document.getElementById("lim-windows").innerHTML = jsT.length
     ? byAgent(jsT).map((g) => `<div class="agent-group">${agentHead(g)}<div class="grid g3" style="margin:0">${g.windows.map(windowCard).join("")}</div>${g.agent === "claude" ? creditsBlock() : ""}</div>`).join("") + claudeNotice()
     : versionNotice() || claudeNotice() || `<div class="empty">${esc(t("summary.limits.no"))}</div>`;
-  const L = S.data.limits.codex || [];
   const now = Date.now() / 1000;
-  const wins = codexWindows();
 
-  // % of the 5 h window over time
-  const [start] = interval();
-  const pts = L.filter((l) => l.ts >= start && l.p5h != null);
-  const series = (field, resetKey) => {
-    const out = [];
+  // % used of every limit window of every agent over time (one color per agent, one line style per window)
+  const [start, end] = interval();
+  const SERIES = (S.data.limits.series || []).filter((x) => agentOn(x.agent) && x.duration_h);
+  const dash = (x) => (x.duration_h <= 24 ? [] : x.id === "seven_day" ? [6, 3] : [2, 3]);
+  const line = (x) => {
+    const pts = x.points.filter((p) => p[0] >= start), out = [];
     for (let i = 0; i < pts.length; i++) {
-      const l = pts[i], prev = pts[i - 1];
-      if (prev && (Math.abs((l[resetKey] || 0) - (prev[resetKey] || 0)) > 120 || l.ts - prev.ts > 3600)) out.push({ x: (prev.ts + 1) * 1000, y: null });
-      out.push({ x: l.ts * 1000, y: l[field] });
+      const p = pts[i], prev = pts[i - 1];
+      // a new window (reset changed) or a long gap without readings: break the line
+      if (prev && (Math.abs((p[2] || 0) - (prev[2] || 0)) > 120 || p[0] - prev[0] > 3 * 3600)) out.push({ x: (prev[0] + 1) * 1000, y: null });
+      out.push({ x: p[0] * 1000, y: p[1] });
     }
     return out;
   };
-  const b = baseOptions();
-  draw("g-codex-limit", {
-    type: "line",
-    data: {
-      datasets: [
-        { label: t("lim.series5h"), data: series("p5h", "reset_5h"), borderColor: agentColor("codex"), backgroundColor: agentColor("codex"), borderWidth: 2, pointRadius: 0, spanGaps: false, tension: 0 },
-        { label: t("lim.seriesWeek"), data: series("pweek", "reset_week"), borderColor: css("--s1"), backgroundColor: css("--s1"), borderWidth: 2, pointRadius: 0, spanGaps: false, borderDash: [4, 3] },
-      ],
-    },
-    options: baseOptions({
-      parsing: false,
-      plugins: { ...b.plugins, tooltip: { ...b.plugins.tooltip, callbacks: { title: (c) => fmtDate(c[0].parsed.x / 1000), label: (c) => ` ${c.dataset.label}: ${fmtPct(c.parsed.y)}` } } },
-      scales: {
-        x: { type: "linear", grid: { display: false }, ticks: { color: css("--text-2"), callback: (v) => fmtDate(v / 1000, S.period !== "today" && S.period !== "24h"), maxTicksLimit: 8 } },
-        y: { min: 0, max: 100, grid: { color: css("--grid") }, ticks: { color: css("--text-2"), callback: (v) => v + "%" }, border: { display: false } },
-      },
-    }),
-  });
+  const datasets = SERIES.map((x) => ({ label: `${agentName(x.agent)} · ${windowName(x.id)}`, data: line(x) }))
+    .map((d, i) => ({ ...d, borderColor: agentColor(SERIES[i].agent), backgroundColor: agentColor(SERIES[i].agent), borderDash: dash(SERIES[i]),
+      borderWidth: 2, pointRadius: 0, spanGaps: false, tension: 0, hidden: S.limHidden?.has(d.label) }))
+    .filter((d) => d.data.length);
+  const firstTs = Math.min(...datasets.flatMap((d) => d.data.filter((p) => p.y != null).map((p) => p.x)));
+  const box = document.getElementById("g-codex-limit").parentElement;
+  document.getElementById("lim-history-empty").hidden = !!datasets.length;
+  box.hidden = !datasets.length;
+  if (datasets.length) {
+    const b = baseOptions();
+    draw("g-codex-limit", {
+      type: "line",
+      data: { datasets },
+      options: baseOptions({
+        parsing: false,
+        plugins: {
+          ...b.plugins,
+          legend: { ...b.plugins.legend, onClick: (e, item, legend) => {
+            // remembers which lines were turned off: the chart is redrawn on every collection
+            S.limHidden ||= new Set();
+            S.limHidden.has(item.text) ? S.limHidden.delete(item.text) : S.limHidden.add(item.text);
+            Chart.defaults.plugins.legend.onClick.call(legend.chart.legend, e, item, legend);
+          } },
+          tooltip: { ...b.plugins.tooltip, callbacks: { title: (c) => fmtDate(c[0].parsed.x / 1000), label: (c) => ` ${c.dataset.label}: ${fmtPct(c.parsed.y)}` } },
+        },
+        scales: {
+          x: { type: "linear", min: Math.max(start * 1000, firstTs), max: end * 1000, grid: { display: false },
+               ticks: { color: css("--text-2"), callback: (v) => fmtDate(v / 1000, S.period !== "today" && S.period !== "24h"), maxTicksLimit: 8 } },
+          y: { min: 0, max: 100, grid: { color: css("--grid") }, ticks: { color: css("--text-2"), callback: (v) => v + "%" }, border: { display: false } },
+        },
+      }),
+    });
+  }
 
+  // recent short windows (5 h) of every agent, with the pace at which each one was spent. Windows
+  // still at 0% are left out: while the limit is unused the endpoint moves its reset forward on
+  // every reading, which would list one empty "window" per reading.
+  const shortWins = allShortWindows().filter((j) => agentOn(j.agent) && j.reset >= start && j.max > 0).sort((a, b) => b.reset - a.reset).slice(0, 40);
   table("t-windows", [
+    { t: "col.agent", k: (j) => agentName(j.agent), left: true },
     { t: "col.windowStart", k: (j) => j.start, f: (v) => fmtDate(v), left: true },
-    { t: "col.used", k: (j) => j.max, f: (v) => `${fmtPct(v)}<span class="mini-bar" style="width:${Math.min(v, 100) * 0.6}px;background:${v >= 100 ? css("--critical") : agentColor("codex")}"></span>` },
+    { t: "col.used", k: (j) => j.max, f: (v, j) => `${fmtPct(v)}<span class="mini-bar" style="width:${Math.min(v, 100) * 0.6}px;background:${v >= 100 ? css("--critical") : agentColor(j.agent)}"></span>` },
     { t: "col.rate", k: (j) => j.rate, f: (v) => fmtPct(v, 1) },
     { t: "col.wouldRunOut", k: (j) => j.runsOutIn, f: (v) => (v ? fmtDur(v * 3600) : "–"), hint: "col.wouldRunOut.hint" },
     { t: "col.lastReading", k: (j) => j.last.ts, f: (v) => fmtDate(v) },
-  ], wins.filter((j) => j.reset >= start).reverse().slice(0, 40), 0);
+  ], shortWins, 1);
 
   // last 5 h, compared with the 5 h peak of the last 30 days
   const lim5 = now - 5 * 3600;

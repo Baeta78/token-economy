@@ -1228,6 +1228,7 @@ def collect(progress=lambda msg: None) -> dict:
         },
     }
     snapshot["limits"]["windows"] = limits_mod.windows(snapshot["limits"]["codex"], claude_api, codex_api)
+    snapshot["limits"]["series"] = limits_mod.series(snapshot["limits"]["codex"])
     return snapshot
 
 

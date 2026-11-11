@@ -572,9 +572,15 @@ Object.assign(TXT.pt, { "cloud.title": "Créditos de nuvem do Claude Code", "clo
 Object.assign(TXT.en, { "cloud.title": "Claude Code cloud credits", "cloud.left": "US$ {left} left of US$ {limit}", "cloud.renews": "renews in {dur}", "cloud.locked": "locked" });
 Object.assign(TXT.es, { "cloud.title": "Créditos de nube de Claude Code", "cloud.left": "Quedan US$ {left} de US$ {limit}", "cloud.renews": "se renueva en {dur}", "cloud.locked": "bloqueado" });
 
-Object.assign(TXT.pt, { "lim.history": "Histórico dos limites do Codex" });
-Object.assign(TXT.en, { "lim.history": "Codex limit history" });
-Object.assign(TXT.es, { "lim.history": "Historial de límites de Codex" });
+Object.assign(TXT.pt, { "lim.history": "Histórico dos limites", "lim.windows": "Janelas de 5 h recentes",
+  "lim.chart.explain": "Uma cor por agente; linha cheia = janela de 5 h, tracejada = semanal, pontilhada = semanal por modelo. Cada queda a zero é uma janela nova; inclinação forte = limite gasto rápido. Clique na legenda para esconder ou mostrar uma linha.",
+  "lim.history.empty": "Nenhuma leitura de limite neste período. Os limites aparecem quando o agente informa o uso do plano (Claude Code e Codex fazem isso)." });
+Object.assign(TXT.en, { "lim.history": "Limit history", "lim.windows": "Recent 5-hour windows",
+  "lim.chart.explain": "One color per agent; solid line = 5-hour window, dashed = weekly, dotted = weekly per model. Each drop to zero is a new window; a steep slope means the limit is going fast. Click the legend to hide or show a line.",
+  "lim.history.empty": "No limit readings in this period. Limits show up when the agent reports plan usage (Claude Code and Codex do)." });
+Object.assign(TXT.es, { "lim.history": "Historial de límites", "lim.windows": "Ventanas de 5 h recientes",
+  "lim.chart.explain": "Un color por agente; línea continua = ventana de 5 h, discontinua = semanal, punteada = semanal por modelo. Cada caída a cero es una ventana nueva; una pendiente fuerte = límite que se gasta rápido. Haz clic en la leyenda para ocultar o mostrar una línea.",
+  "lim.history.empty": "No hay lecturas de límite en este período. Los límites aparecen cuando el agente informa el uso del plan (Claude Code y Codex lo hacen)." });
 
 // ---------------------------------------------------------------- detected token-saving tools
 Object.assign(TXT.pt, {

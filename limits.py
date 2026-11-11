@@ -449,3 +449,39 @@ def _complete(j: dict, samples: list, now: float) -> dict:
         j["runs_out_in_h"] = round((100 - j["pct"]) / rate, 2) if j["pct"] < 100 else 0.0
         j["runs_out_before_reset"] = j["runs_out_in_h"] < remaining_h
     return j
+
+
+# ----------------------------------------------------------------------------
+# history of every limit window, for the chart (all agents together)
+# ----------------------------------------------------------------------------
+
+def series(snap_codex: list[dict], days: int = 90) -> list[dict]:
+    """[{agent, id, duration_h, points: [[ts, pct, reset], ...]}] for each limit window of each agent.
+
+    Sources: the readings Codex writes into its own logs, plus the readings this panel saved
+    from the official usage endpoints (Claude and Codex). Any agent added to `windows()` later
+    only needs its history file here to show up in the chart."""
+    since = time.time() - days * 86400
+    acc: dict[tuple, dict] = {}
+
+    def add(agent, ident, dur, ts, pct, reset):
+        if pct is None or ts < since:
+            return
+        s = acc.setdefault((agent, ident), {"agent": agent, "id": ident, "duration_h": dur, "points": []})
+        s["points"].append([round(ts), round(float(pct), 1), round(reset) if reset else None])
+
+    for l in snap_codex or []:
+        add("codex", "five_hour", (l.get("window_min") or 300) / 60, l["ts"], l.get("p5h"), l.get("reset_5h"))
+        add("codex", "seven_day", 168, l["ts"], l.get("pweek"), l.get("reset_week"))
+    for agent, path in (("codex", CODEX_HISTORY), ("claude", CLAUDE_HISTORY)):
+        for h in history(since, path):
+            for j in _history_windows(h):
+                if j.get("id"):
+                    add(agent, j["id"], j.get("duration_h"), h["ts"], j.get("pct"), j.get("reset"))
+    out = []
+    for s in acc.values():
+        pts = sorted(s["points"])
+        # the same moment from two sources (log and endpoint): keep one
+        s["points"] = [p for i, p in enumerate(pts) if i == 0 or p[0] - pts[i - 1][0] >= 30]
+        out.append(s)
+    return sorted(out, key=lambda s: (s["agent"], s["duration_h"] or 0, s["id"]))
