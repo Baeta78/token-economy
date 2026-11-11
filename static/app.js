@@ -1408,7 +1408,7 @@ const REPO_URL = "https://github.com/Baeta78/token-economy";
 // Official donation addresses. Empty ones are hidden. Only the addresses in the official repository are ours.
 const DONATE = {
   sponsors: "https://github.com/sponsors/Baeta78",
-  lightning: "",
+  lightning: "lno1pgqppmsrse80qf0aara4slvcjxrvu6j2rp5ftmjy4yntlsmsutpkvkt6878s8rytce47qg38ct5a66vhqlakc3qnyfn6838lrxcem0x5p9qx2x36qgp9gyxfmkfdlc8cgve57jyc727ayksec6v99y77y759fzvcxmyrvhgqxwwxyqwwan3edglpe66hwlevdp65w5d2nk0ulmlpkjwgs5eed8exdjkax4d32djd4zju2zcfmz72h5qnhw8qyafldfxfsmxteqy4jrafst24q8ap5wshgqkhcfkfldn5geqcxjruqqeg2985wkk8heuw2k2xrlhlvapgrtsplfuy72z639w2g8arzgseqmcyn8wd49yu2ylsr3wr2kw6ka7rswrs",
   monero: "",
 };
 
@@ -1480,7 +1480,7 @@ function renderDonate() {
   });
   if (coins.length) loadQR().then(() => coins.forEach(([k, scheme]) => {
     const box = document.getElementById("qr-" + k);
-    if (box && !box.childElementCount) new QRCode(box, { text: scheme + DONATE[k], width: 132, height: 132, correctLevel: QRCode.CorrectLevel.M });
+    if (box && !box.childElementCount) { const big = k === "lightning"; new QRCode(box, { text: scheme + DONATE[k], width: big ? 220 : 132, height: big ? 220 : 132, correctLevel: big ? QRCode.CorrectLevel.L : QRCode.CorrectLevel.M }); }
   })).catch(() => {});
 }
 
