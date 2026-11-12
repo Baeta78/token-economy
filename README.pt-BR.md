@@ -30,30 +30,80 @@ Os prints usam os dados de demonstração embutidos (`python server.py --demo`),
 
 ## Instalação
 
-Requisitos: **Python 3.10+** ([python.org](https://www.python.org/downloads/); no Windows, marque "Add to PATH") no **Windows 10/11**, **macOS** ou **Linux**. O Windows é o mais testado; o suporte a macOS e Linux é novo, então [abra uma issue](https://github.com/Baeta78/token-economy/issues) se algo parecer errado.
+O Token Economy roda no **Windows 10/11**, no **macOS** e no **Linux**, com **Python 3.10+**. O Windows é o mais testado; o suporte a macOS e Linux é novo, então [abra uma issue](https://github.com/Baeta78/token-economy/issues) se algo parecer errado.
 
-```
-git clone https://github.com/Baeta78/token-economy.git
-cd token-economy
-pip install pystray pillow
-```
+Baixe o código com `git clone https://github.com/Baeta78/token-economy.git`, ou baixe o ZIP pelo botão verde **Code** e descompacte onde quiser. Depois siga os passos do seu sistema.
 
-Ou baixe o ZIP pelo botão verde **Code** e descompacte onde quiser.
+### Windows
 
-**Windows:** dê dois cliques em **`Token Economy.vbs`**. **macOS / Linux:** rode `./start.sh --tray` (ou `python3 tray.py`). Aparece um ícone na bandeja (na barra de menus, no macOS):
+1. Instale o Python pelo [python.org](https://www.python.org/downloads/) e marque **"Add to PATH"** no instalador.
+2. Na pasta `token-economy`, instale os dois pacotes que o ícone da bandeja usa:
+   ```
+   pip install pystray pillow
+   ```
+3. Dê dois cliques em **`Token Economy.vbs`**. Aparece um ícone na bandeja, perto do relógio.
 
-- **Mouse em cima:** os limites do plano agora e os tokens de hoje, por agente.
-- **Clique:** abre o painel numa janela própria.
-- **Botão direito:** o mesmo resumo, mais "Atualizar agora", "Iniciar com o Windows" ("Iniciar ao entrar no sistema" no macOS e Linux) e "Sair".
-- **Cor do ícone:** segue o limite mais apertado entre todos os agentes: verde abaixo de 50%, amarelo a partir de 50%, laranja a partir de 70%, vermelho a partir de 90%, cinza sem dados.
+O Windows 11 esconde ícones novos na setinha `^`. Para deixar sempre visível, arraste o ícone para a barra de tarefas ou ative em *Configurações > Personalização > Barra de tarefas > Outros ícones da bandeja do sistema*.
 
-No Linux, o GNOME precisa da extensão *AppIndicator* para mostrar ícones de bandeja (KDE, XFCE e a maioria dos outros já mostram). No macOS, na primeira leitura dos limites do Claude, o sistema pede para liberar o item "Claude Code-credentials" do Keychain: escolha *Sempre Permitir*.
+### macOS
 
-O Windows 11 esconde ícones novos na setinha `^`. Para deixar sempre visível, arraste o ícone para a barra ou ative em *Configurações > Personalização > Barra de tarefas > Outros ícones da bandeja do sistema*.
+1. Instale o Python 3.10+ pelo [python.org](https://www.python.org/downloads/) ou pelo Homebrew (`brew install python`).
+2. No Terminal, dentro da pasta `token-economy`, crie um ambiente virtual e instale os pacotes:
+   ```
+   python3 -m venv .venv
+   .venv/bin/pip install pystray pillow
+   ```
+3. Inicie o ícone na barra de menus:
+   ```
+   sh start.sh --tray
+   ```
+4. Na primeira leitura dos limites do Claude, o macOS pergunta se o Python pode usar o item **"Claude Code-credentials"** do seu Keychain (Chaves). É o login que o Claude Code salvou; escolha **Sempre Permitir** para não perguntar de novo. Se negar, todo o resto funciona e só os limites do Claude ficam vazios.
 
-**Só no navegador:** rode `python server.py` (ou dê dois cliques em `start.bat` no Windows, ou `./start.sh` no macOS/Linux) e abra http://127.0.0.1:8765. Opções: `--port 8765`, `--interval 60` (segundos entre leituras), `--no-browser`, `--demo`.
+### Linux
 
-**Atualizações:** *Ajustes > Procurar atualizações* avisa quando sai uma versão nova. Suas configurações e histórico ficam em `.cache/` e são mantidos.
+1. Instale o Python 3.10+ e o suporte a ícones de bandeja. No Debian / Ubuntu:
+   ```
+   sudo apt install python3-venv python3-gi gir1.2-ayatanaappindicator3-0.1
+   ```
+   No Fedora: `sudo dnf install python3-gobject libayatana-appindicator-gtk3`.
+2. Dentro da pasta `token-economy`, crie um ambiente virtual que enxergue esses pacotes do sistema e instale o resto:
+   ```
+   python3 -m venv --system-site-packages .venv
+   .venv/bin/pip install pystray pillow
+   ```
+3. Inicie o ícone na bandeja:
+   ```
+   sh start.sh --tray
+   ```
+
+O GNOME só mostra ícones de bandeja com a extensão *AppIndicator* (já vem no Ubuntu). KDE, XFCE, Cinnamon e a maioria dos outros ambientes já mostram sem nada extra.
+
+### Usando o ícone da bandeja / barra de menus
+
+| | Windows | macOS | Linux |
+|---|---|---|---|
+| Ver o resumo (limites e tokens de hoje) | passe o mouse no ícone ou clique com o botão direito | clique no ícone | clique no ícone |
+| Abrir o painel | clique no ícone ou em *Abrir painel* | *Abrir painel* no menu | *Abrir painel* no menu |
+| Iniciar automaticamente | *Iniciar com o Windows* | *Iniciar ao entrar no sistema* | *Iniciar ao entrar no sistema* |
+| Fechar | *Sair* | *Sair* | *Sair* |
+
+A cor do ícone segue o limite mais apertado entre todos os agentes: verde abaixo de 50%, amarelo a partir de 50%, laranja a partir de 70%, vermelho a partir de 90%, cinza sem dados. O painel abre em janela própria quando há Chrome, Edge, Brave ou Chromium instalado; senão, no navegador padrão.
+
+*Iniciar ao entrar no sistema* cria `Token Economy.vbs` na pasta Inicializar do Windows, `~/Library/LaunchAgents/com.token-economy.tray.plist` no macOS ou `~/.config/autostart/token-economy.desktop` no Linux. Desmarcar apaga esse arquivo.
+
+### Só no navegador, sem ícone
+
+| Windows | macOS / Linux |
+|---|---|
+| dois cliques em `start.bat`, ou `python server.py` | `sh start.sh` |
+
+Abre http://127.0.0.1:8765 no navegador. Opções: `--port 8765`, `--interval 60` (segundos entre leituras), `--no-browser`, `--demo` (dados fictícios, para experimentar). Esse modo não precisa de pacotes extras. Para parar, `Ctrl+C`.
+
+### Atualizar e remover
+
+*Ajustes e fontes > Procurar atualizações* avisa quando sai uma versão nova e pode instalá-la. Suas configurações e o histórico ficam em `.cache/` e são mantidos.
+
+Para remover, desmarque *Iniciar ao entrar no sistema* (ou *Iniciar com o Windows*), feche o ícone e apague a pasta `token-economy`. Fora os dois pacotes do Python, nada é instalado em outro lugar.
 
 ## O que ele lê
 
@@ -153,7 +203,7 @@ Não. Os registros são lidos localmente. As únicas conexões de saída são as
 Sim. Ele mostra as janelas que o seu plano tem, e o nome do plano vem da sua conta, então mudanças de plano aparecem sozinhas.
 
 **macOS ou Linux?**
-Sim, os dois têm suporte: `./start.sh` para o painel e `./start.sh --tray` para o ícone na barra de menus / bandeja. O suporte é novo e foi testado sobretudo no Windows, então relatos de quem usa macOS e Linux são muito bem-vindos.
+Sim, os dois têm suporte: `sh start.sh` para o painel e `sh start.sh --tray` para o ícone na barra de menus / bandeja. O suporte é novo e foi testado sobretudo no Windows, então relatos de quem usa macOS e Linux são muito bem-vindos.
 
 ## Arquivos do projeto
 

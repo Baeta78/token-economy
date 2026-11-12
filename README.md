@@ -30,30 +30,80 @@ Screenshots use the built-in demo data (`python server.py --demo`), not a real a
 
 ## Install
 
-Requirements: **Python 3.10+** ([python.org](https://www.python.org/downloads/); on Windows tick "Add to PATH") on **Windows 10/11**, **macOS** or **Linux**. Windows is the most tested; macOS and Linux support is new, so please [open an issue](https://github.com/Baeta78/token-economy/issues) if something looks off.
+Token Economy runs on **Windows 10/11**, **macOS** and **Linux** with **Python 3.10+**. Windows is the most tested; macOS and Linux support is new, so please [open an issue](https://github.com/Baeta78/token-economy/issues) if something looks off.
 
-```
-git clone https://github.com/Baeta78/token-economy.git
-cd token-economy
-pip install pystray pillow
-```
+Get the code with `git clone https://github.com/Baeta78/token-economy.git`, or download the ZIP from the green **Code** button and unzip it anywhere. Then follow the steps for your system.
 
-Or download the ZIP from the green **Code** button and unzip it anywhere.
+### Windows
 
-**Windows:** double-click **`Token Economy.vbs`**. **macOS / Linux:** run `./start.sh --tray` (or `python3 tray.py`). An icon appears in the tray (the menu bar on macOS):
-
-- **Hover:** your current plan limits and today's tokens, per agent.
-- **Click:** opens the dashboard in its own window.
-- **Right-click:** the same summary, plus "Refresh now", "Start with Windows" ("Start at login" on macOS and Linux) and "Quit".
-- **Icon color:** follows your tightest limit across all agents: green below 50%, yellow from 50%, orange from 70%, red from 90%, gray with no data.
-
-On Linux, GNOME needs the *AppIndicator* extension to show tray icons (KDE, XFCE and most others show them out of the box). On macOS, the first time it reads your Claude limits, macOS asks to allow access to the "Claude Code-credentials" Keychain item: choose *Always Allow*.
+1. Install Python from [python.org](https://www.python.org/downloads/) and tick **"Add to PATH"** in the installer.
+2. In the `token-economy` folder, install the two packages the tray icon needs:
+   ```
+   pip install pystray pillow
+   ```
+3. Double-click **`Token Economy.vbs`**. An icon appears in the tray, next to the clock.
 
 Windows 11 hides new tray icons behind the `^` arrow. To keep it visible, drag it to the taskbar, or turn it on in *Settings > Personalization > Taskbar > Other system tray icons*.
 
-**Browser only:** run `python server.py` (or double-click `start.bat` on Windows, or `./start.sh` on macOS/Linux) and open http://127.0.0.1:8765. Options: `--port 8765`, `--interval 60` (seconds between reads), `--no-browser`, `--demo`.
+### macOS
 
-**Updating:** *Settings > Check for updates* tells you when a new version is out. Your settings and history live in `.cache/` and are kept.
+1. Install Python 3.10+ from [python.org](https://www.python.org/downloads/) or with Homebrew (`brew install python`).
+2. In Terminal, inside the `token-economy` folder, create a virtual environment and install the packages:
+   ```
+   python3 -m venv .venv
+   .venv/bin/pip install pystray pillow
+   ```
+3. Start the menu bar icon:
+   ```
+   sh start.sh --tray
+   ```
+4. The first time it reads your Claude limits, macOS asks whether Python may use the **"Claude Code-credentials"** item in your Keychain. That is the login Claude Code saved; choose **Always Allow** so it doesn't ask again. If you deny it, everything else works and only the Claude limits stay empty.
+
+### Linux
+
+1. Install Python 3.10+ and the tray icon support. On Debian / Ubuntu:
+   ```
+   sudo apt install python3-venv python3-gi gir1.2-ayatanaappindicator3-0.1
+   ```
+   On Fedora: `sudo dnf install python3-gobject libayatana-appindicator-gtk3`.
+2. Inside the `token-economy` folder, create a virtual environment that can see those system packages, and install the rest:
+   ```
+   python3 -m venv --system-site-packages .venv
+   .venv/bin/pip install pystray pillow
+   ```
+3. Start the tray icon:
+   ```
+   sh start.sh --tray
+   ```
+
+GNOME shows tray icons only with the *AppIndicator* extension (preinstalled on Ubuntu). KDE, XFCE, Cinnamon and most other desktops show them out of the box.
+
+### Using the tray / menu bar icon
+
+| | Windows | macOS | Linux |
+|---|---|---|---|
+| See the summary (limits and today's tokens) | hover the icon, or right-click | click the icon | click the icon |
+| Open the dashboard | click the icon, or *Open panel* | *Open panel* in the menu | *Open panel* in the menu |
+| Start automatically | *Start with Windows* | *Start at login* | *Start at login* |
+| Quit | *Quit* | *Quit* | *Quit* |
+
+The icon color follows your tightest limit across all agents: green below 50%, yellow from 50%, orange from 70%, red from 90%, gray with no data. The dashboard opens in its own window when Chrome, Edge, Brave or Chromium is installed, and in your default browser otherwise.
+
+*Start at login* creates `Token Economy.vbs` in the Windows Startup folder, `~/Library/LaunchAgents/com.token-economy.tray.plist` on macOS, or `~/.config/autostart/token-economy.desktop` on Linux. Unticking it deletes that file.
+
+### Browser only, no tray icon
+
+| Windows | macOS / Linux |
+|---|---|
+| double-click `start.bat`, or run `python server.py` | `sh start.sh` |
+
+It opens http://127.0.0.1:8765 in your browser. Options: `--port 8765`, `--interval 60` (seconds between reads), `--no-browser`, `--demo` (fictional data, to try it out). This mode needs no extra packages. Stop it with `Ctrl+C`.
+
+### Updating and removing
+
+*Settings & sources > Check for updates* tells you when a new version is out and can install it. Your settings and history live in `.cache/` and are kept.
+
+To remove it, untick *Start at login* (or *Start with Windows*), quit the icon and delete the `token-economy` folder. Apart from the two Python packages, nothing is installed anywhere else.
 
 ## What it reads
 
@@ -153,7 +203,7 @@ No. Logs are read locally. The only outgoing requests are the public price table
 Yes. It shows the windows your plan has, and the plan name comes from your account, so plan changes appear automatically.
 
 **macOS or Linux?**
-Yes, both are supported: `./start.sh` for the dashboard, `./start.sh --tray` for the menu bar / tray icon. The support is new and mostly tested on Windows, so bug reports from macOS and Linux users are very welcome.
+Yes, both are supported: `sh start.sh` for the dashboard, `sh start.sh --tray` for the menu bar / tray icon. The support is new and mostly tested on Windows, so bug reports from macOS and Linux users are very welcome.
 
 ## Project files
 
