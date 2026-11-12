@@ -47,7 +47,7 @@ O Windows 11 esconde ícones novos na setinha `^`. Para deixar sempre visível, 
 
 ### macOS
 
-1. Instale o Python 3.10+ pelo [python.org](https://www.python.org/downloads/) ou pelo Homebrew (`brew install python`).
+1. Instale o Python 3.10+ pelo [python.org](https://www.python.org/downloads/) ou pelo Homebrew (`brew install python`). O Python que vem no macOS é o 3.9, antigo demais.
 2. No Terminal, dentro da pasta `token-economy`, crie um ambiente virtual e instale os pacotes:
    ```
    python3 -m venv .venv

@@ -47,7 +47,7 @@ Windows 11 hides new tray icons behind the `^` arrow. To keep it visible, drag i
 
 ### macOS
 
-1. Install Python 3.10+ from [python.org](https://www.python.org/downloads/) or with Homebrew (`brew install python`).
+1. Install Python 3.10+ from [python.org](https://www.python.org/downloads/) or with Homebrew (`brew install python`). The Python that comes with macOS is 3.9, too old.
 2. In Terminal, inside the `token-economy` folder, create a virtual environment and install the packages:
    ```
    python3 -m venv .venv
