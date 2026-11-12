@@ -1,6 +1,6 @@
 # Token Economy: Claude Code & Codex usage, limits and token savings dashboard
 
-**See how many tokens your AI coding agents burn, how close you are to your Claude Code and Codex plan limits, and how much your token-saving tools (RTK, Headroom, Context Mode, Graphify…) actually save.** A local dashboard and Windows tray app. No account, no telemetry: it reads the logs already on your machine.
+**See how many tokens your AI coding agents burn, how close you are to your Claude Code and Codex plan limits, and how much your token-saving tools (RTK, Headroom, Context Mode, Graphify…) actually save.** A local dashboard and tray app for Windows, macOS and Linux. No account, no telemetry: it reads the logs already on your machine.
 
 [Português](README.pt-BR.md) · [Español](README.es.md) · [Support the project](#support-the-project)
 
@@ -30,7 +30,7 @@ Screenshots use the built-in demo data (`python server.py --demo`), not a real a
 
 ## Install
 
-Requirements: **Windows 10/11** and **Python 3.10+** ([python.org](https://www.python.org/downloads/), tick "Add to PATH").
+Requirements: **Python 3.10+** ([python.org](https://www.python.org/downloads/); on Windows tick "Add to PATH") on **Windows 10/11**, **macOS** or **Linux**. Windows is the most tested; macOS and Linux support is new, so please [open an issue](https://github.com/Baeta78/token-economy/issues) if something looks off.
 
 ```
 git clone https://github.com/Baeta78/token-economy.git
@@ -40,16 +40,18 @@ pip install pystray pillow
 
 Or download the ZIP from the green **Code** button and unzip it anywhere.
 
-Double-click **`Token Economy.vbs`**. An icon appears in the Windows tray:
+**Windows:** double-click **`Token Economy.vbs`**. **macOS / Linux:** run `./start.sh --tray` (or `python3 tray.py`). An icon appears in the tray (the menu bar on macOS):
 
 - **Hover:** your current plan limits and today's tokens, per agent.
 - **Click:** opens the dashboard in its own window.
-- **Right-click:** the same summary, plus "Refresh now", "Start with Windows" and "Quit".
+- **Right-click:** the same summary, plus "Refresh now", "Start with Windows" ("Start at login" on macOS and Linux) and "Quit".
 - **Icon color:** follows your tightest limit across all agents: green below 50%, yellow from 50%, orange from 70%, red from 90%, gray with no data.
+
+On Linux, GNOME needs the *AppIndicator* extension to show tray icons (KDE, XFCE and most others show them out of the box). On macOS, the first time it reads your Claude limits, macOS asks to allow access to the "Claude Code-credentials" Keychain item: choose *Always Allow*.
 
 Windows 11 hides new tray icons behind the `^` arrow. To keep it visible, drag it to the taskbar, or turn it on in *Settings > Personalization > Taskbar > Other system tray icons*.
 
-**Browser only:** run `python server.py` (or double-click `start.bat`) and open http://127.0.0.1:8765. Options: `--port 8765`, `--interval 60` (seconds between reads), `--no-browser`, `--demo`.
+**Browser only:** run `python server.py` (or double-click `start.bat` on Windows, or `./start.sh` on macOS/Linux) and open http://127.0.0.1:8765. Options: `--port 8765`, `--interval 60` (seconds between reads), `--no-browser`, `--demo`.
 
 **Updating:** *Settings > Check for updates* tells you when a new version is out. Your settings and history live in `.cache/` and are kept.
 
@@ -60,10 +62,10 @@ Everything is read locally and read-only.
 | Source | Where | What you get |
 |---|---|---|
 | Claude Code | `~/.claude/projects/**/*.jsonl` | tokens per call, model, project, tools used |
-| Claude plan limits | Anthropic's official usage endpoint, with the login Claude Code already keeps in `~/.claude/.credentials.json` | 5-hour, weekly and per-model weekly windows (whatever your plan has), plan name, extra usage. The token goes only to Anthropic and is never saved or shown. Can be turned off in Settings |
+| Claude plan limits | Anthropic's official usage endpoint, with the login Claude Code already keeps in `~/.claude/.credentials.json` (the Keychain on macOS) | 5-hour, weekly and per-model weekly windows (whatever your plan has), plan name, extra usage. The token goes only to Anthropic and is never saved or shown. Can be turned off in Settings |
 | Codex | `~/.codex/sessions/**/rollout-*.jsonl` and the official usage endpoint the Codex CLI uses | tokens per turn, 5-hour and weekly windows, plan |
 | OpenCode | `~/.local/share/opencode/opencode.db` | tokens and cost per response, including local Ollama models |
-| Ollama | `%LOCALAPPDATA%/Ollama/server*.log` | requests and generation time (Ollama doesn't log tokens) |
+| Ollama | `%LOCALAPPDATA%/Ollama/server*.log` (Windows), `~/.ollama/logs/server*.log` (macOS/Linux) | requests and generation time (Ollama doesn't log tokens) |
 | Token-saving tools | each tool's own database or log (table below) | tokens saved, per agent and per day |
 
 Tools and agents you don't have are simply left out.
@@ -151,11 +153,12 @@ No. Logs are read locally. The only outgoing requests are the public price table
 Yes. It shows the windows your plan has, and the plan name comes from your account, so plan changes appear automatically.
 
 **macOS or Linux?**
-Not yet: the tray app is Windows-only. The dashboard server is plain Python; help porting it is welcome.
+Yes, both are supported: `./start.sh` for the dashboard, `./start.sh --tray` for the menu bar / tray icon. The support is new and mostly tested on Windows, so bug reports from macOS and Linux users are very welcome.
 
 ## Project files
 
-- `tray.py`: the tray app; starts the server and the data collection.
+- `tray.py`: the tray / menu bar app; starts the server and the data collection.
+- `start.bat`, `Token Economy.vbs` (Windows) and `start.sh` (macOS/Linux): launchers.
 - `server.py`: local server on `127.0.0.1`, collects every minute and serves the page. Only the dashboard page can change settings (requests need a header other websites can't send).
 - `collector.py`: reads every source and builds the numbers. `python collector.py` runs it alone.
 - `limits.py`: Claude and Codex plan limits.

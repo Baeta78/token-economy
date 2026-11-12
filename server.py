@@ -242,8 +242,10 @@ def _demo_mask(body: bytes) -> bytes:
 
 class Server(ThreadingHTTPServer):
     """Binds the port exclusively. Python's default (SO_REUSEADDR) lets a second server take a
-    port that is already in use on Windows, and requests then reach the wrong program."""
-    allow_reuse_address = False
+    port that is already in use on Windows, and requests then reach the wrong program.
+    On macOS/Linux SO_REUSEADDR never shares a listening port; it only lets a restart bind
+    right away instead of waiting a minute for the old socket to clear, so it stays on there."""
+    allow_reuse_address = sys.platform != "win32"
 
     def server_bind(self):
         import socket

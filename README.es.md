@@ -1,6 +1,6 @@
 # Token Economy: panel de consumo, límites y ahorro de tokens de Claude Code y Codex
 
-**Mira cuántos tokens gastan tus agentes de IA, cuánto te falta para los límites del plan de Claude Code y Codex, y cuánto ahorran de verdad tus herramientas de ahorro (RTK, Headroom, Context Mode, Graphify…).** Panel local y app de bandeja para Windows. Sin cuenta y sin telemetría: lee los registros que ya están en tu computadora.
+**Mira cuántos tokens gastan tus agentes de IA, cuánto te falta para los límites del plan de Claude Code y Codex, y cuánto ahorran de verdad tus herramientas de ahorro (RTK, Headroom, Context Mode, Graphify…).** Panel local y app de bandeja para Windows, macOS y Linux. Sin cuenta y sin telemetría: lee los registros que ya están en tu computadora.
 
 [English](README.md) · [Português](README.pt-BR.md) · [Apoya el proyecto](#apoya-el-proyecto)
 
@@ -30,7 +30,7 @@ Las capturas usan los datos de demostración incluidos (`python server.py --demo
 
 ## Instalación
 
-Requisitos: **Windows 10/11** y **Python 3.10+** ([python.org](https://www.python.org/downloads/), marca "Add to PATH").
+Requisitos: **Python 3.10+** ([python.org](https://www.python.org/downloads/); en Windows, marca "Add to PATH") en **Windows 10/11**, **macOS** o **Linux**. Windows es el más probado; el soporte para macOS y Linux es nuevo, así que [abre un issue](https://github.com/Baeta78/token-economy/issues) si algo no se ve bien.
 
 ```
 git clone https://github.com/Baeta78/token-economy.git
@@ -40,16 +40,18 @@ pip install pystray pillow
 
 O descarga el ZIP con el botón verde **Code** y descomprímelo donde quieras.
 
-Haz doble clic en **`Token Economy.vbs`**. Aparece un ícono en la bandeja de Windows:
+**Windows:** haz doble clic en **`Token Economy.vbs`**. **macOS / Linux:** ejecuta `./start.sh --tray` (o `python3 tray.py`). Aparece un ícono en la bandeja (en la barra de menús, en macOS):
 
 - **Pasar el mouse:** los límites del plan y los tokens de hoy, por agente.
 - **Clic:** abre el panel en su propia ventana.
-- **Clic derecho:** el mismo resumen, más "Actualizar ahora", "Iniciar con Windows" y "Salir".
+- **Clic derecho:** el mismo resumen, más "Actualizar ahora", "Iniciar con Windows" ("Iniciar al abrir sesión" en macOS y Linux) y "Salir".
 - **Color del ícono:** sigue el límite más ajustado entre todos los agentes: verde por debajo del 50 %, amarillo desde el 50 %, naranja desde el 70 %, rojo desde el 90 %, gris sin datos.
+
+En Linux, GNOME necesita la extensión *AppIndicator* para mostrar íconos de bandeja (KDE, XFCE y la mayoría de los demás ya los muestran). En macOS, la primera vez que lee tus límites de Claude, el sistema pide permitir el ítem "Claude Code-credentials" del Llavero: elige *Permitir siempre*.
 
 Windows 11 esconde los íconos nuevos detrás de la flecha `^`. Para dejarlo siempre visible, arrástralo a la barra o actívalo en *Configuración > Personalización > Barra de tareas > Otros íconos de la bandeja del sistema*.
 
-**Solo en el navegador:** ejecuta `python server.py` (o doble clic en `start.bat`) y abre http://127.0.0.1:8765. Opciones: `--port 8765`, `--interval 60` (segundos entre lecturas), `--no-browser`, `--demo`.
+**Solo en el navegador:** ejecuta `python server.py` (o doble clic en `start.bat` en Windows, o `./start.sh` en macOS/Linux) y abre http://127.0.0.1:8765. Opciones: `--port 8765`, `--interval 60` (segundos entre lecturas), `--no-browser`, `--demo`.
 
 **Actualizaciones:** *Ajustes > Buscar actualizaciones* avisa cuando sale una versión nueva. Tu configuración e historial están en `.cache/` y se conservan.
 
@@ -60,10 +62,10 @@ Todo se lee localmente y en modo de solo lectura.
 | Fuente | Dónde | Qué obtienes |
 |---|---|---|
 | Claude Code | `~/.claude/projects/**/*.jsonl` | tokens por llamada, modelo, proyecto, herramientas usadas |
-| Límites del plan de Claude | Endpoint oficial de uso de Anthropic, con el login que Claude Code ya guarda en `~/.claude/.credentials.json` | ventanas de 5 h, semanal y semanal por modelo (las que tenga tu plan), nombre del plan y uso extra. El token solo va a Anthropic y nunca se guarda ni se muestra. Se puede desactivar en Ajustes |
+| Límites del plan de Claude | Endpoint oficial de uso de Anthropic, con el login que Claude Code ya guarda en `~/.claude/.credentials.json` (en el Llavero, en macOS) | ventanas de 5 h, semanal y semanal por modelo (las que tenga tu plan), nombre del plan y uso extra. El token solo va a Anthropic y nunca se guarda ni se muestra. Se puede desactivar en Ajustes |
 | Codex | `~/.codex/sessions/**/rollout-*.jsonl` y el endpoint oficial de uso que usa la CLI de Codex | tokens por turno, ventanas de 5 h y semanal, plan |
 | OpenCode | `~/.local/share/opencode/opencode.db` | tokens y costo por respuesta, incluidos modelos locales de Ollama |
-| Ollama | `%LOCALAPPDATA%/Ollama/server*.log` | solicitudes y tiempo de generación (Ollama no registra tokens) |
+| Ollama | `%LOCALAPPDATA%/Ollama/server*.log` (Windows), `~/.ollama/logs/server*.log` (macOS/Linux) | solicitudes y tiempo de generación (Ollama no registra tokens) |
 | Herramientas de ahorro | la base de datos o registro de cada herramienta (tabla abajo) | tokens ahorrados, por agente y por día |
 
 Lo que no tienes instalado simplemente no aparece.
@@ -151,11 +153,12 @@ No. Los registros se leen localmente. Las únicas conexiones salientes son las t
 Sí. Muestra las ventanas que tiene tu plan, y el nombre del plan viene de tu cuenta, así que los cambios de plan aparecen solos.
 
 **¿macOS o Linux?**
-Todavía no: la app de bandeja es solo para Windows. El servidor del panel es Python puro; la ayuda para portarlo es bienvenida.
+Sí, los dos tienen soporte: `./start.sh` para el panel y `./start.sh --tray` para el ícono en la barra de menús / bandeja. El soporte es nuevo y se probó sobre todo en Windows, así que los reportes de quienes usan macOS y Linux son muy bienvenidos.
 
 ## Archivos del proyecto
 
-- `tray.py`: la app de bandeja; inicia el servidor y la recolección.
+- `tray.py`: la app de bandeja / barra de menús; inicia el servidor y la recolección.
+- `start.bat`, `Token Economy.vbs` (Windows) y `start.sh` (macOS/Linux): lanzadores.
 - `server.py`: servidor local en `127.0.0.1`, recolecta cada minuto y sirve la página. Solo la página del panel puede cambiar la configuración (las solicitudes exigen un encabezado que otros sitios no pueden enviar).
 - `collector.py`: lee las fuentes y arma los números. `python collector.py` corre solo la recolección.
 - `limits.py`: límites de los planes de Claude y Codex.

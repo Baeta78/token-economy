@@ -3,7 +3,8 @@
 Claude (Pro / Max / Ultra)
     GET https://api.anthropic.com/api/oauth/usage
     header anthropic-beta: oauth-2025-04-20, authenticated with the login that Claude
-    Code itself keeps in ~/.claude/.credentials.json (or CLAUDE_CODE_OAUTH_TOKEN).
+    Code itself keeps in ~/.claude/.credentials.json (or CLAUDE_CODE_OAUTH_TOKEN; on
+    macOS, in the Keychain item "Claude Code-credentials").
     It is the same endpoint Headroom and ccassist use. The token is read on the spot, only
     goes to Anthropic and is never stored or shown by Token Economy. If the login has
     expired, nothing is done: Claude Code renews it by itself the next time it runs.
@@ -22,6 +23,7 @@ from __future__ import annotations
 import json
 import re
 import os
+import subprocess
 import threading
 import time
 import urllib.error
@@ -53,13 +55,40 @@ def _enabled() -> bool:
         return True
 
 
+KEYCHAIN_SERVICE = "Claude Code-credentials"  # where Claude Code keeps its login on macOS
+
+
+def _keychain_login() -> dict:
+    """The login Claude Code keeps in the macOS Keychain (it has no .credentials.json there).
+
+    Read with the system `security` tool; the first time, macOS asks whether to allow it
+    ("Always Allow" stops the question). Nothing is written to the Keychain."""
+    try:
+        res = subprocess.run(["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
+                             capture_output=True, text=True, timeout=15)
+        if res.returncode == 0 and res.stdout.strip():
+            return json.loads(res.stdout.strip())
+    except (OSError, ValueError, subprocess.SubprocessError):
+        pass
+    return {}
+
+
 def _claude_login() -> tuple[str | None, dict]:
     """(token, plan info without secrets)."""
     tok = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "").strip()
     folder = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
     info = {}
     try:
-        cred = json.loads((folder / ".credentials.json").read_text(encoding="utf-8")).get("claudeAiOauth") or {}
+        try:
+            raw = json.loads((folder / ".credentials.json").read_text(encoding="utf-8"))
+        except OSError:
+            # macOS: no file, the login is in the Keychain (skipped when a token is already given)
+            if not (runtime.MAC and not tok):
+                raise
+            raw = _keychain_login()
+            if not raw:
+                return None, info
+        cred = raw.get("claudeAiOauth") or {}
         info = {"type": cred.get("subscriptionType"), "tier": cred.get("rateLimitTier")}
         if not tok:
             expires = cred.get("expiresAt")

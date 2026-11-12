@@ -57,7 +57,8 @@ def available(detected: list[dict]) -> list[dict]:
     have = {f["id"] for f in detected}
     return [{"id": f["id"], "name": f["name"], "url": f.get("url"), "category": f.get("category"),
              "measured": bool(f.get("measurement")), "install": for_os(f, "install"),
-             **{k: f[k] for k in PITCH if k in f}}
+             # "windows": false only matters to someone on Windows
+             **{k: f[k] for k in PITCH if k in f and (k != "windows" or WIN)}}
             for f in catalog() if f["id"] not in have]
 
 

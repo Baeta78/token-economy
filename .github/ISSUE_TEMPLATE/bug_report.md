@@ -10,6 +10,6 @@ labels: bug
 
 **Agents and tools installed** (Claude Code, Codex, OpenCode, RTK, Headroom...)
 
-**Windows version / Python version**
+**OS and version (Windows / macOS / Linux) and Python version**
 
 **Errors** from `.cache/tray.log`, if any. Don't paste API keys or private code.

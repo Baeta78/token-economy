@@ -19,9 +19,12 @@ import re
 import shutil
 from pathlib import Path
 
+import runtime
+
 HOME = Path.home()
-APPDATA = Path(os.environ.get("APPDATA") or HOME / "AppData" / "Roaming")
-LOCALAPPDATA = Path(os.environ.get("LOCALAPPDATA") or HOME / "AppData" / "Local")
+# %APPDATA% / %LOCALAPPDATA% in the catalog map to the matching folders on macOS and Linux
+APPDATA = runtime.roaming_data()
+LOCALAPPDATA = runtime.local_data()
 
 
 def _json(p: Path):

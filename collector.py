@@ -5,7 +5,9 @@ Sources read (read-only, nothing is changed):
   - Codex       : ~/.codex/sessions/**/rollout-*.jsonl   (usage per turn + 5h and weekly limits)
   - OpenCode    : ~/.local/share/opencode/opencode.db     (usage per message)
   - Ollama      : %LOCALAPPDATA%/Ollama/server*.log        (requests and duration; Ollama does not log tokens)
-  - RTK         : %LOCALAPPDATA%/rtk/history.db            (savings on command output)
+                  (~/.ollama/logs/server*.log on macOS and Linux)
+  - RTK         : <local data>/rtk/history.db              (savings on command output; %LOCALAPPDATA% on
+                  Windows, ~/Library/Application Support on macOS, ~/.local/share on Linux)
   - Headroom    : ~/.headroom/savings_events.jsonl and proxy_savings.json (savings in the proxy)
   - Graphify    : calls logged by the agents and projects with graphify-out/graph.json
 
@@ -35,7 +37,7 @@ import runtime
 from pathlib import Path
 
 HOME = Path(os.environ.get("USERPROFILE") or Path.home())
-LOCAL = Path(os.environ.get("LOCALAPPDATA") or HOME / "AppData" / "Local")
+LOCAL = runtime.local_data()
 BASE = Path(__file__).resolve().parent
 CACHE_DIR = runtime.CACHE
 CACHE_FILE = CACHE_DIR / "file_index.json"
@@ -46,7 +48,8 @@ PATHS = {
     "codex": HOME / ".codex" / "sessions",
     "codex_archived": HOME / ".codex" / "archived_sessions",
     "opencode": HOME / ".local" / "share" / "opencode" / "opencode.db",
-    "ollama_logs": LOCAL / "Ollama",
+    # Windows (and demo mode) keep the server logs in %LOCALAPPDATA%\Ollama; macOS and Linux in ~/.ollama/logs
+    "ollama_logs": LOCAL / "Ollama" if runtime.WIN or os.environ.get("LOCALAPPDATA") else HOME / ".ollama" / "logs",
     "rtk": LOCAL / "rtk" / "history.db",
     "headroom": HOME / ".headroom",
 }

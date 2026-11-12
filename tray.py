@@ -1,16 +1,18 @@
-"""Token Economy in the Windows tray.
+"""Token Economy in the system tray (Windows), menu bar (macOS) or tray (Linux).
 
 - Mouse over: summary of the day and of the limits.
 - Click: opens the panel in its own window.
-- Right click: refresh, start with Windows, quit.
+- Right click: refresh, start at login, quit.
 
-Run it with pythonw (no terminal window):  pythonw tray.py
+Windows, no terminal window:  pythonw tray.py
+macOS / Linux:                python3 tray.py   (or ./start.sh --tray)
 """
 from __future__ import annotations
 
 import ctypes
 import datetime as dt
 import json
+import locale
 import os
 import shutil
 import subprocess
@@ -33,27 +35,38 @@ URL = f"http://127.0.0.1:{PORT}"
 NAME = "Token Economy"
 LOG = runtime.CACHE / "tray.log"
 CONFIG = runtime.CACHE / "config.json"
-STARTUP_DIR = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
-STARTUP = STARTUP_DIR / f"{NAME}.vbs"
-STARTUP_OLD = [STARTUP_DIR / "Painel de tokens.vbs", STARTUP_DIR / "Token Panel.vbs"]  # earlier names
+WIN, MAC = runtime.WIN, runtime.MAC
+if WIN:
+    STARTUP_DIR = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+    STARTUP = STARTUP_DIR / f"{NAME}.vbs"
+    STARTUP_OLD = [STARTUP_DIR / "Painel de tokens.vbs", STARTUP_DIR / "Token Panel.vbs"]  # earlier names
+elif MAC:
+    STARTUP = Path.home() / "Library" / "LaunchAgents" / "com.token-economy.tray.plist"
+    STARTUP_OLD = []
+else:  # Linux and other freedesktop systems
+    STARTUP = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "autostart" / "token-economy.desktop"
+    STARTUP_OLD = []
 
 TXT = {
     "pt": {
-        "open": "Abrir painel", "refresh": "Atualizar agora", "autostart": "Iniciar com o Windows", "quit": "Sair",
+        "open": "Abrir painel", "refresh": "Atualizar agora", "autostart": "Iniciar com o Windows",
+        "autostartLogin": "Iniciar ao entrar no sistema", "quit": "Sair",
         "reading": "Lendo os registros…", "noLimits": "Sem leitura de limites", "week": "sem",
         "codex5h": "Codex 5h {p}% (zera {h}h{m}) · sem {s}%", "codexFree": "Codex 5h livre · semana {s}%",
         "today": "Hoje: {n} tokens novos", "noUsage": "sem uso hoje", "rtk": "RTK poupou {n} hoje",
         "thousand": "mil", "million": "mi", "billion": "bi", "dec": ",",
     },
     "en": {
-        "open": "Open panel", "refresh": "Refresh now", "autostart": "Start with Windows", "quit": "Quit",
+        "open": "Open panel", "refresh": "Refresh now", "autostart": "Start with Windows",
+        "autostartLogin": "Start at login", "quit": "Quit",
         "reading": "Reading logs…", "noLimits": "No limit readings", "week": "wk",
         "codex5h": "Codex 5h {p}% (resets {h}h{m}) · wk {s}%", "codexFree": "Codex 5h free · week {s}%",
         "today": "Today: {n} new tokens", "noUsage": "no usage today", "rtk": "RTK saved {n} today",
         "thousand": "K", "million": "M", "billion": "B", "dec": ".",
     },
     "es": {
-        "open": "Abrir panel", "refresh": "Actualizar ahora", "autostart": "Iniciar con Windows", "quit": "Salir",
+        "open": "Abrir panel", "refresh": "Actualizar ahora", "autostart": "Iniciar con Windows",
+        "autostartLogin": "Iniciar al abrir sesión", "quit": "Salir",
         "reading": "Leyendo registros…", "noLimits": "Sin lectura de límites", "week": "sem",
         "codex5h": "Codex 5h {p}% (reinicia {h}h{m}) · sem {s}%", "codexFree": "Codex 5h libre · semana {s}%",
         "today": "Hoy: {n} tokens nuevos", "noUsage": "sin uso hoy", "rtk": "RTK ahorró {n} hoy",
@@ -63,7 +76,7 @@ TXT = {
 
 
 def language() -> str:
-    """Language chosen in the panel; the first time, the Windows one."""
+    """Language chosen in the panel; the first time, the system one."""
     try:
         cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
         lang = cfg.get("language") or cfg.get("idioma")  # "idioma": key used before the English translation
@@ -71,11 +84,21 @@ def language() -> str:
             return lang
     except Exception:  # noqa: BLE001
         pass
-    try:
-        prim = ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0x3FF
-        return {0x16: "pt", 0x0A: "es"}.get(prim, "en")
-    except Exception:  # noqa: BLE001
-        return "en"
+    if WIN:
+        try:
+            prim = ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0x3FF
+            return {0x16: "pt", 0x0A: "es"}.get(prim, "en")
+        except Exception:  # noqa: BLE001
+            return "en"
+    # macOS / Linux: LANG / LC_ALL (e.g. pt_BR.UTF-8), else the locale Python sees
+    code = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
+    if not code:
+        try:
+            code = locale.getlocale()[0] or ""
+        except (ValueError, TypeError):
+            code = ""
+    code = code.lower()
+    return "pt" if code.startswith("pt") else "es" if code.startswith("es") else "en"
 
 
 def tr(key: str, **kw) -> str:
@@ -104,9 +127,25 @@ def log(msg: str) -> None:
 # single instance
 # ----------------------------------------------------------------------------
 
+_lock_file = None  # kept open for the life of the process (macOS / Linux single-instance lock)
+
+
 def already_running() -> bool:
-    ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\TokenEconomyTray")
-    return ctypes.windll.kernel32.GetLastError() == 183  # ERROR_ALREADY_EXISTS
+    global _lock_file
+    if WIN:
+        ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\TokenEconomyTray")
+        return ctypes.windll.kernel32.GetLastError() == 183  # ERROR_ALREADY_EXISTS
+    import fcntl
+
+    try:
+        runtime.CACHE.mkdir(parents=True, exist_ok=True)
+        _lock_file = open(runtime.CACHE / "tray.lock", "w")
+        fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return False
+    except BlockingIOError:
+        return True
+    except OSError:
+        return False  # cannot lock (read-only folder…): run anyway
 
 
 # ----------------------------------------------------------------------------
@@ -114,16 +153,37 @@ def already_running() -> bool:
 # ----------------------------------------------------------------------------
 
 def app_browser() -> str | None:
-    candidates = [
-        os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
-        os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
-        os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
-        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
-    ]
+    """A Chromium browser that supports --app (its own window), or None."""
+    if WIN:
+        candidates = [
+            os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+            os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
+            os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+        ]
+        names = ["msedge", "chrome"]
+    elif MAC:
+        apps = ["Google Chrome.app/Contents/MacOS/Google Chrome", "Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+                "Brave Browser.app/Contents/MacOS/Brave Browser", "Chromium.app/Contents/MacOS/Chromium"]
+        candidates = [str(root / a) for root in (Path("/Applications"), Path.home() / "Applications") for a in apps]
+        names = []
+    else:
+        candidates = []
+        names = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge", "brave-browser"]
     for c in candidates:
         if os.path.exists(c):
             return c
-    return shutil.which("msedge") or shutil.which("chrome")
+    for n in names:
+        if shutil.which(n):
+            return shutil.which(n)
+    return None
+
+
+def _detached() -> dict:
+    """Popen options so the child outlives the tray and has no console."""
+    if WIN:
+        return {"creationflags": getattr(subprocess, "DETACHED_PROCESS", 0)}
+    return {"start_new_session": True, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
 
 
 def open_panel(*_):
@@ -131,7 +191,7 @@ def open_panel(*_):
     try:
         if exe:
             # app mode: its own window, with no tabs or address bar
-            subprocess.Popen([exe, f"--app={URL}", "--window-size=1440,920"], creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
+            subprocess.Popen([exe, f"--app={URL}", "--window-size=1440,920"], **_detached())
             return
     except OSError as e:
         log(f"failed to open in app mode: {e}")
@@ -231,17 +291,50 @@ def draw_icon(color: str) -> Image.Image:
 
 
 # ----------------------------------------------------------------------------
-# start with Windows
+# start at login (Windows Startup folder, macOS LaunchAgent, Linux XDG autostart)
 # ----------------------------------------------------------------------------
 
 def pythonw() -> str:
     exe = Path(sys.executable)
+    if not WIN:
+        return str(exe)
     w = exe.with_name("pythonw.exe")
     return str(w if w.exists() else exe)
 
 
 def autostart_enabled(*_) -> bool:
     return STARTUP.exists()
+
+
+def _xml(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _startup_file() -> tuple[str, str]:
+    """(content, encoding) of the file that starts the tray at login on this OS."""
+    tray = BASE / "tray.py"
+    if WIN:
+        cmd = f'"{pythonw()}" "{tray}"'
+        return ('Set sh = CreateObject("WScript.Shell")\r\n'
+                f'sh.CurrentDirectory = "{BASE}"\r\n'
+                f'sh.Run "{cmd.replace(chr(34), chr(34) * 2)}", 0, False\r\n'), "utf-16"
+    if MAC:
+        return ('<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+                '<plist version="1.0">\n<dict>\n'
+                '  <key>Label</key><string>com.token-economy.tray</string>\n'
+                '  <key>ProgramArguments</key>\n  <array>\n'
+                f'    <string>{_xml(pythonw())}</string>\n    <string>{_xml(str(tray))}</string>\n'
+                '  </array>\n'
+                f'  <key>WorkingDirectory</key><string>{_xml(str(BASE))}</string>\n'
+                '  <key>RunAtLoad</key><true/>\n'
+                '</dict>\n</plist>\n'), "utf-8"
+    q = lambda s: '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'  # noqa: E731
+    return ('[Desktop Entry]\nType=Application\n'
+            f'Name={NAME}\n'
+            f'Exec={q(pythonw())} {q(str(tray))}\n'
+            f'Path={BASE}\n'
+            'X-GNOME-Autostart-enabled=true\nNoDisplay=true\n'), "utf-8"
 
 
 def toggle_autostart(icon, _item):
@@ -253,13 +346,8 @@ def toggle_autostart(icon, _item):
             STARTUP.unlink()
         else:
             STARTUP.parent.mkdir(parents=True, exist_ok=True)
-            cmd = f'"{pythonw()}" "{BASE / "tray.py"}"'
-            STARTUP.write_text(
-                'Set sh = CreateObject("WScript.Shell")\r\n'
-                f'sh.CurrentDirectory = "{BASE}"\r\n'
-                f'sh.Run "{cmd.replace(chr(34), chr(34) * 2)}", 0, False\r\n',
-                encoding="utf-16",
-            )
+            content, encoding = _startup_file()
+            STARTUP.write_text(content, encoding=encoding)
     except OSError as e:
         log(f"autostart: {e}")
     icon.update_menu()
@@ -294,7 +382,7 @@ class App:
             *[line(i) for i in range(6)],
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(lambda _: tr("refresh"), self.refresh_now),
-            pystray.MenuItem(lambda _: tr("autostart"), toggle_autostart, checked=autostart_enabled),
+            pystray.MenuItem(lambda _: tr("autostart" if WIN else "autostartLogin"), toggle_autostart, checked=autostart_enabled),
             pystray.MenuItem(lambda _: tr("quit"), self.quit),
         )
 
