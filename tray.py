@@ -357,6 +357,17 @@ def toggle_autostart(icon, _item):
 # app
 # ----------------------------------------------------------------------------
 
+def on_ui_thread(fn, *args):
+    """macOS only lets the menu bar item change on the main thread (macOS 27 kills the
+    process otherwise); elsewhere pystray is fine with any thread."""
+    if MAC:
+        from PyObjCTools import AppHelper
+
+        AppHelper.callAfter(fn, *args)
+    else:
+        fn(*args)
+
+
 class App:
     def __init__(self):
         self.lines = [tr("reading")]
@@ -398,6 +409,10 @@ class App:
         except Exception:  # noqa: BLE001
             log(traceback.format_exc())
 
+    def show_reading(self):
+        self.icon.title = f"{NAME}\n{tr('reading')}"
+        self.icon.update_menu()
+
     def fetch(self) -> dict | None:
         try:
             with urllib.request.urlopen(URL + "/api/data", timeout=20) as r:
@@ -416,18 +431,17 @@ class App:
                 if d and d.get("generated_at", 0) > last:
                     last = d["generated_at"]
                     self.data = d
-                    self.apply(d)
+                    on_ui_thread(self.apply, d)
                 next_fetch = now + (30 if d else 5)
             # the language was changed in the panel: redo the text right away
             lang = language()
             if lang != self.lang:
                 self.lang = lang
                 if self.data:
-                    self.apply(self.data)
+                    on_ui_thread(self.apply, self.data)
                 else:
-                    self.icon.title = f"{NAME}\n{tr('reading')}"
                     self.lines = [tr("reading")]
-                    self.icon.update_menu()
+                    on_ui_thread(self.show_reading)
             time.sleep(3)
 
     def refresh_now(self, *_):
