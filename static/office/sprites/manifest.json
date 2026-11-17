@@ -1,0 +1,694 @@
+{
+ "stand": 360,
+ "v": 1794956226,
+ "sprites": {
+  "bot": {
+   "float": {
+    "file": "bot_float.png",
+    "frames": 2,
+    "w": 134,
+    "h": 154
+   },
+   "work": {
+    "file": "bot_work.png",
+    "frames": 2,
+    "w": 130,
+    "h": 154
+   }
+  },
+  "bruno": {
+   "celebrate": {
+    "file": "bruno_celebrate.png",
+    "frames": 1,
+    "w": 159,
+    "h": 355,
+    "faces": "right"
+   },
+   "coffee": {
+    "file": "bruno_coffee.png",
+    "frames": 1,
+    "w": 117,
+    "h": 355,
+    "faces": "right"
+   },
+   "idle": {
+    "file": "bruno_idle.png",
+    "frames": 1,
+    "w": 135,
+    "h": 386,
+    "faces": "right"
+   },
+   "idle_b": {
+    "file": "bruno_idle_b.png",
+    "frames": 1,
+    "w": 116,
+    "h": 386,
+    "faces": "right"
+   },
+   "machine": {
+    "file": "bruno_machine.png",
+    "frames": 2,
+    "w": 162,
+    "h": 374,
+    "faces": "left"
+   },
+   "sleep": {
+    "file": "bruno_sleep.png",
+    "frames": 1,
+    "w": 148,
+    "h": 279,
+    "faces": "right",
+    "seated": true
+   },
+   "think": {
+    "file": "bruno_think.png",
+    "frames": 1,
+    "w": 171,
+    "h": 317,
+    "faces": "right"
+   },
+   "type": {
+    "file": "bruno_type.png",
+    "frames": 2,
+    "w": 160,
+    "h": 309,
+    "faces": "right"
+   },
+   "walk_back": {
+    "file": "bruno_walk_back.png",
+    "frames": 4,
+    "w": 168,
+    "h": 374,
+    "faces": "left"
+   },
+   "walk_front": {
+    "file": "bruno_walk_front.png",
+    "frames": 4,
+    "w": 157,
+    "h": 374,
+    "faces": "right"
+   }
+  },
+  "cat": {
+   "sit": {
+    "file": "cat_sit.png",
+    "frames": 1,
+    "w": 99,
+    "h": 124
+   },
+   "sleep": {
+    "file": "cat_sleep.png",
+    "frames": 1,
+    "w": 100,
+    "h": 74
+   },
+   "stretch": {
+    "file": "cat_stretch.png",
+    "frames": 1,
+    "w": 107,
+    "h": 96
+   },
+   "walk": {
+    "file": "cat_walk.png",
+    "frames": 4,
+    "w": 95,
+    "h": 104
+   }
+  },
+  "fx": {
+   "puff": {
+    "file": "fx_puff.png",
+    "frames": 4,
+    "w": 194,
+    "h": 164
+   },
+   "sparkle": {
+    "file": "fx_sparkle.png",
+    "frames": 4,
+    "w": 180,
+    "h": 164
+   }
+  },
+  "icons": {
+   "items": {
+    "file": "icons.png",
+    "frames": 12,
+    "w": 79,
+    "h": 76
+   }
+  },
+  "kai": {
+   "celebrate": {
+    "file": "kai_celebrate.png",
+    "frames": 1,
+    "w": 163,
+    "h": 335,
+    "faces": "right"
+   },
+   "coffee": {
+    "file": "kai_coffee.png",
+    "frames": 1,
+    "w": 112,
+    "h": 339,
+    "faces": "right"
+   },
+   "idle": {
+    "file": "kai_idle.png",
+    "frames": 1,
+    "w": 112,
+    "h": 364,
+    "faces": "right"
+   },
+   "idle_b": {
+    "file": "kai_idle_b.png",
+    "frames": 1,
+    "w": 119,
+    "h": 364,
+    "faces": "right"
+   },
+   "machine": {
+    "file": "kai_machine.png",
+    "frames": 2,
+    "w": 149,
+    "h": 353,
+    "faces": "left"
+   },
+   "sleep": {
+    "file": "kai_sleep.png",
+    "frames": 1,
+    "w": 153,
+    "h": 267,
+    "faces": "right",
+    "seated": true
+   },
+   "think": {
+    "file": "kai_think.png",
+    "frames": 1,
+    "w": 150,
+    "h": 321,
+    "faces": "right"
+   },
+   "type": {
+    "file": "kai_type.png",
+    "frames": 2,
+    "w": 158,
+    "h": 314,
+    "faces": "right"
+   },
+   "walk_back": {
+    "file": "kai_walk_back.png",
+    "frames": 4,
+    "w": 153,
+    "h": 353,
+    "faces": "left"
+   },
+   "walk_front": {
+    "file": "kai_walk_front.png",
+    "frames": 4,
+    "w": 149,
+    "h": 353,
+    "faces": "right"
+   }
+  },
+  "lia": {
+   "celebrate": {
+    "file": "lia_celebrate.png",
+    "frames": 1,
+    "w": 169,
+    "h": 339,
+    "faces": "right"
+   },
+   "coffee": {
+    "file": "lia_coffee.png",
+    "frames": 1,
+    "w": 116,
+    "h": 364,
+    "faces": "right"
+   },
+   "idle": {
+    "file": "lia_idle.png",
+    "frames": 1,
+    "w": 120,
+    "h": 364,
+    "faces": "right"
+   },
+   "idle_b": {
+    "file": "lia_idle_b.png",
+    "frames": 1,
+    "w": 115,
+    "h": 364,
+    "faces": "right"
+   },
+   "machine": {
+    "file": "lia_machine.png",
+    "frames": 2,
+    "w": 153,
+    "h": 353,
+    "faces": "left"
+   },
+   "sleep": {
+    "file": "lia_sleep.png",
+    "frames": 1,
+    "w": 174,
+    "h": 310,
+    "faces": "right",
+    "seated": true
+   },
+   "think": {
+    "file": "lia_think.png",
+    "frames": 1,
+    "w": 161,
+    "h": 328,
+    "faces": "right"
+   },
+   "type": {
+    "file": "lia_type.png",
+    "frames": 2,
+    "w": 153,
+    "h": 346,
+    "faces": "right"
+   },
+   "walk_back": {
+    "file": "lia_walk_back.png",
+    "frames": 4,
+    "w": 164,
+    "h": 353,
+    "faces": "left"
+   },
+   "walk_front": {
+    "file": "lia_walk_front.png",
+    "frames": 4,
+    "w": 175,
+    "h": 353,
+    "faces": "right"
+   }
+  },
+  "machine": {
+   "compactor_idle": {
+    "file": "machine_compactor_idle.png",
+    "frames": 1,
+    "w": 250,
+    "h": 334
+   },
+   "compactor_on": {
+    "file": "machine_compactor_on.png",
+    "frames": 3,
+    "w": 250,
+    "h": 328
+   },
+   "gateway_idle": {
+    "file": "machine_gateway_idle.png",
+    "frames": 1,
+    "w": 304,
+    "h": 306
+   },
+   "gateway_on": {
+    "file": "machine_gateway_on.png",
+    "frames": 3,
+    "w": 305,
+    "h": 297
+   },
+   "map_idle": {
+    "file": "machine_map_idle.png",
+    "frames": 1,
+    "w": 305,
+    "h": 233
+   },
+   "map_on": {
+    "file": "machine_map_on.png",
+    "frames": 3,
+    "w": 305,
+    "h": 341
+   },
+   "mcp_idle": {
+    "file": "machine_mcp_idle.png",
+    "frames": 1,
+    "w": 304,
+    "h": 303
+   },
+   "mcp_on": {
+    "file": "machine_mcp_on.png",
+    "frames": 3,
+    "w": 304,
+    "h": 302
+   },
+   "memory_idle": {
+    "file": "machine_memory_idle.png",
+    "frames": 1,
+    "w": 284,
+    "h": 334
+   },
+   "memory_on": {
+    "file": "machine_memory_on.png",
+    "frames": 3,
+    "w": 284,
+    "h": 320
+   },
+   "terse_idle": {
+    "file": "machine_terse_idle.png",
+    "frames": 1,
+    "w": 300,
+    "h": 334
+   },
+   "terse_on": {
+    "file": "machine_terse_on.png",
+    "frames": 3,
+    "w": 300,
+    "h": 320
+   }
+  },
+  "maya": {
+   "celebrate": {
+    "file": "maya_celebrate.png",
+    "frames": 1,
+    "w": 170,
+    "h": 357,
+    "faces": "right"
+   },
+   "coffee": {
+    "file": "maya_coffee.png",
+    "frames": 1,
+    "w": 129,
+    "h": 364,
+    "faces": "right"
+   },
+   "idle": {
+    "file": "maya_idle.png",
+    "frames": 1,
+    "w": 124,
+    "h": 382,
+    "faces": "right"
+   },
+   "idle_b": {
+    "file": "maya_idle_b.png",
+    "frames": 1,
+    "w": 120,
+    "h": 382,
+    "faces": "right"
+   },
+   "machine": {
+    "file": "maya_machine.png",
+    "frames": 2,
+    "w": 159,
+    "h": 353,
+    "faces": "left"
+   },
+   "sleep": {
+    "file": "maya_sleep.png",
+    "frames": 1,
+    "w": 172,
+    "h": 292,
+    "faces": "right",
+    "seated": true
+   },
+   "think": {
+    "file": "maya_think.png",
+    "frames": 1,
+    "w": 163,
+    "h": 321,
+    "faces": "right"
+   },
+   "type": {
+    "file": "maya_type.png",
+    "frames": 2,
+    "w": 146,
+    "h": 314,
+    "faces": "right"
+   },
+   "walk_back": {
+    "file": "maya_walk_back.png",
+    "frames": 4,
+    "w": 168,
+    "h": 353,
+    "faces": "left"
+   },
+   "walk_front": {
+    "file": "maya_walk_front.png",
+    "frames": 4,
+    "w": 156,
+    "h": 353,
+    "faces": "right"
+   }
+  },
+  "nina": {
+   "celebrate": {
+    "file": "nina_celebrate.png",
+    "frames": 1,
+    "w": 172,
+    "h": 357,
+    "faces": "left"
+   },
+   "coffee": {
+    "file": "nina_coffee.png",
+    "frames": 1,
+    "w": 131,
+    "h": 364,
+    "faces": "left"
+   },
+   "idle": {
+    "file": "nina_idle.png",
+    "frames": 1,
+    "w": 132,
+    "h": 364,
+    "faces": "left"
+   },
+   "idle_b": {
+    "file": "nina_idle_b.png",
+    "frames": 1,
+    "w": 135,
+    "h": 364,
+    "faces": "left"
+   },
+   "machine": {
+    "file": "nina_machine.png",
+    "frames": 2,
+    "w": 175,
+    "h": 353,
+    "faces": "left"
+   },
+   "sleep": {
+    "file": "nina_sleep.png",
+    "frames": 1,
+    "w": 144,
+    "h": 353,
+    "faces": "right"
+   },
+   "think": {
+    "file": "nina_think.png",
+    "frames": 1,
+    "w": 175,
+    "h": 292,
+    "faces": "right"
+   },
+   "type": {
+    "file": "nina_type.png",
+    "frames": 2,
+    "w": 155,
+    "h": 314,
+    "faces": "right"
+   },
+   "walk_back": {
+    "file": "nina_walk_back.png",
+    "frames": 4,
+    "w": 168,
+    "h": 353,
+    "faces": "left"
+   },
+   "walk_front": {
+    "file": "nina_walk_front.png",
+    "frames": 4,
+    "w": 190,
+    "h": 353,
+    "faces": "right"
+   }
+  },
+  "theo": {
+   "celebrate": {
+    "file": "theo_celebrate.png",
+    "frames": 1,
+    "w": 178,
+    "h": 357,
+    "faces": "right"
+   },
+   "coffee": {
+    "file": "theo_coffee.png",
+    "frames": 1,
+    "w": 128,
+    "h": 364,
+    "faces": "right"
+   },
+   "idle": {
+    "file": "theo_idle.png",
+    "frames": 1,
+    "w": 126,
+    "h": 364,
+    "faces": "right"
+   },
+   "idle_b": {
+    "file": "theo_idle_b.png",
+    "frames": 1,
+    "w": 128,
+    "h": 364,
+    "faces": "right"
+   },
+   "machine": {
+    "file": "theo_machine.png",
+    "frames": 2,
+    "w": 153,
+    "h": 353,
+    "faces": "left"
+   },
+   "sleep": {
+    "file": "theo_sleep.png",
+    "frames": 1,
+    "w": 153,
+    "h": 267,
+    "faces": "right",
+    "seated": true
+   },
+   "think": {
+    "file": "theo_think.png",
+    "frames": 1,
+    "w": 152,
+    "h": 321,
+    "faces": "right"
+   },
+   "type": {
+    "file": "theo_type.png",
+    "frames": 2,
+    "w": 160,
+    "h": 314,
+    "faces": "right"
+   },
+   "walk_back": {
+    "file": "theo_walk_back.png",
+    "frames": 4,
+    "w": 159,
+    "h": 353,
+    "faces": "right"
+   },
+   "walk_front": {
+    "file": "theo_walk_front.png",
+    "frames": 4,
+    "w": 168,
+    "h": 353,
+    "faces": "right"
+   }
+  },
+  "tokens": {
+   "items": {
+    "file": "tokens.png",
+    "frames": 4,
+    "w": 58,
+    "h": 68
+   }
+  },
+  "vault": {
+   "items": {
+    "file": "vault.png",
+    "frames": 3,
+    "w": 213,
+    "h": 204
+   }
+  },
+  "loft": {
+   "bg_day": {
+    "file": "loft_bg_day.png",
+    "frames": 1,
+    "w": 1672,
+    "h": 941
+   },
+   "bg_night": {
+    "file": "loft_bg_night.png",
+    "frames": 1,
+    "w": 1672,
+    "h": 941
+   },
+   "bookshelf": {
+    "file": "loft_bookshelf.png",
+    "frames": 1,
+    "w": 212,
+    "h": 444
+   },
+   "chair": {
+    "file": "loft_chair.png",
+    "frames": 1,
+    "w": 150,
+    "h": 254
+   },
+   "coffee": {
+    "file": "loft_coffee.png",
+    "frames": 1,
+    "w": 302,
+    "h": 344
+   },
+   "desk": {
+    "file": "loft_desk.png",
+    "frames": 1,
+    "w": 346,
+    "h": 304
+   },
+   "desk_b": {
+    "file": "loft_desk_b.png",
+    "frames": 1,
+    "w": 372,
+    "h": 304
+   },
+   "door_closed": {
+    "file": "loft_door_closed.png",
+    "frames": 1,
+    "w": 136,
+    "h": 304
+   },
+   "door_open": {
+    "file": "loft_door_open.png",
+    "frames": 1,
+    "w": 138,
+    "h": 304
+   },
+   "plant_small": {
+    "file": "loft_plant_small.png",
+    "frames": 1,
+    "w": 133,
+    "h": 164
+   },
+   "plant_tall": {
+    "file": "loft_plant_tall.png",
+    "frames": 1,
+    "w": 211,
+    "h": 364
+   },
+   "rug": {
+    "file": "loft_rug.png",
+    "frames": 1,
+    "w": 613,
+    "h": 304
+   },
+   "sofa": {
+    "file": "loft_sofa.png",
+    "frames": 1,
+    "w": 609,
+    "h": 404
+   },
+   "whiteboard": {
+    "file": "loft_whiteboard.png",
+    "frames": 1,
+    "w": 253,
+    "h": 304
+   },
+   "alarm_off": {
+    "file": "loft_alarm_off.png",
+    "frames": 1,
+    "w": 112,
+    "h": 146
+   },
+   "alarm_on": {
+    "file": "loft_alarm_on.png",
+    "frames": 1,
+    "w": 112,
+    "h": 146,
+    "overlay": true
+   }
+  }
+ }
+}

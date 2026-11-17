@@ -4,7 +4,10 @@
 - Install, git clone: fast-forwards to the release tag (refuses if you changed tracked files).
 - Install, ZIP download: downloads that release's source ZIP from GitHub and copies it over
   the app folder. `.cache/` (your settings and history) is never touched.
-The new version runs after Token Economy is restarted.
+- Automatic (on unless the panel's setting turns it off): a background thread checks every
+  6 hours and installs a new release by itself. Only published releases count, never plain
+  commits on main.
+After installing, Token Economy restarts itself (tray icon or server.py) to run the new version.
 """
 from __future__ import annotations
 
@@ -25,10 +28,30 @@ from version import VERSION
 REPO = "Baeta78/token-economy"
 BASE = Path(__file__).resolve().parent
 CHECK_EVERY_S = 6 * 3600
+AUTO_FIRST_S = 120  # first automatic check a little after startup, not while the first collection runs
 KEEP = {".cache", ".cache-demo", ".git", "graphify-out", "__pycache__", "prices.json"}  # never overwritten
 
 _lock = threading.Lock()
+_apply_lock = threading.Lock()  # the button and the automatic check never install at the same time
 _last = {"at": 0.0, "data": None}
+_restart = None  # set by whoever owns the process (tray.py or server.py main)
+
+
+def _log(msg: str) -> None:
+    try:
+        runtime.CACHE.mkdir(parents=True, exist_ok=True)
+        with open(runtime.CACHE / "update.log", "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
+    except OSError:
+        pass
+
+
+def auto_enabled() -> bool:
+    try:
+        cfg = json.loads((runtime.CACHE / "config.json").read_text(encoding="utf-8"))
+        return cfg.get("auto_update") is not False
+    except Exception:  # noqa: BLE001
+        return True  # no settings yet: on by default
 
 
 def _get(url: str, timeout: int = 15) -> bytes:
@@ -109,12 +132,44 @@ def _apply_zip(tag: str) -> None:
 def apply() -> dict:
     if runtime.DEMO:
         raise RuntimeError("demo")
-    info = check(force=True)
-    if not info.get("newer"):
-        return {"ok": True, "updated": False, "current": VERSION}
-    tag = info["tag"]
-    if info["method"] == "git":
-        _apply_git(tag)
-    else:
-        _apply_zip(tag)
-    return {"ok": True, "updated": True, "version": info["latest"], "restart": True}
+    with _apply_lock:
+        info = check(force=True)
+        if not info.get("newer"):
+            return {"ok": True, "updated": False, "current": VERSION}
+        tag = info["tag"]
+        if info["method"] == "git":
+            _apply_git(tag)
+        else:
+            _apply_zip(tag)
+        _log(f"installed {tag} over {VERSION} ({info['method']})")
+        with _lock:  # the files are new now; don't offer the same version again before the restart
+            _last["data"] = {**info, "newer": False, "installed": info["latest"]}
+        return {"ok": True, "updated": True, "version": info["latest"], "restart": _restart is not None}
+
+
+def restart_soon(delay: float = 1.5) -> bool:
+    """Restarts Token Economy so the new files run. False if nobody registered a way to restart."""
+    if _restart is None:
+        return False
+    threading.Timer(delay, _restart).start()
+    return True
+
+
+def _auto_loop() -> None:
+    time.sleep(AUTO_FIRST_S)
+    while True:
+        if auto_enabled():
+            try:
+                if apply().get("updated") and restart_soon(0):
+                    return
+            except Exception as e:  # noqa: BLE001  (offline, local changes…): try again next time
+                _log(f"automatic update skipped: {e}")
+        time.sleep(CHECK_EVERY_S)
+
+
+def start_auto(restart) -> None:
+    """Registers how to restart the app and starts the automatic check (not in demo mode)."""
+    global _restart
+    _restart = restart
+    if not runtime.DEMO:
+        threading.Thread(target=_auto_loop, daemon=True, name="auto-update").start()
