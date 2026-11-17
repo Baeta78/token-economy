@@ -253,8 +253,7 @@
   // props drawn in depth order with the people
   // ---------------------------------------------------------------------------
   function drawChair(x, y) {
-    // the chair art faces down-left; people sit facing their desk, down-right
-    if (drawSprite("loft", "chair", 0, x - 6, y + 4, { scale: 0.5, mirror: true })) return;
+    if (drawSprite("loft", "chair", 0, x - 6, y + 4, { scale: 0.5 })) return;
     ctx.fillStyle = "#3b3f4a"; roundRect(ctx, x - 34, y - 150, 50, 82, 12); ctx.fill();
     ctx.fillStyle = "#2a9d9a"; roundRect(ctx, x - 30, y - 144, 42, 20, 8); ctx.fill();
     ctx.fillStyle = "#3b3f4a"; roundRect(ctx, x - 40, y - 74, 84, 16, 7); ctx.fill();
