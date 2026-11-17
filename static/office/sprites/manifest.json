@@ -1,5 +1,6 @@
 {
  "stand": 360,
+ "v": 1794956226,
  "sprites": {
   "bot": {
    "float": {
@@ -591,18 +592,6 @@
    }
   },
   "loft": {
-   "alarm_off": {
-    "file": "loft_alarm_off.png",
-    "frames": 1,
-    "w": 92,
-    "h": 134
-   },
-   "alarm_on": {
-    "file": "loft_alarm_on.png",
-    "frames": 1,
-    "w": 95,
-    "h": 134
-   },
    "bg_day": {
     "file": "loft_bg_day.png",
     "frames": 1,
@@ -614,6 +603,24 @@
     "frames": 1,
     "w": 1672,
     "h": 941
+   },
+   "bookshelf": {
+    "file": "loft_bookshelf.png",
+    "frames": 1,
+    "w": 212,
+    "h": 444
+   },
+   "chair": {
+    "file": "loft_chair.png",
+    "frames": 1,
+    "w": 150,
+    "h": 254
+   },
+   "coffee": {
+    "file": "loft_coffee.png",
+    "frames": 1,
+    "w": 302,
+    "h": 344
    },
    "desk": {
     "file": "loft_desk.png",
@@ -645,17 +652,42 @@
     "w": 133,
     "h": 164
    },
+   "plant_tall": {
+    "file": "loft_plant_tall.png",
+    "frames": 1,
+    "w": 211,
+    "h": 364
+   },
    "rug": {
     "file": "loft_rug.png",
     "frames": 1,
     "w": 613,
     "h": 304
    },
+   "sofa": {
+    "file": "loft_sofa.png",
+    "frames": 1,
+    "w": 609,
+    "h": 404
+   },
    "whiteboard": {
     "file": "loft_whiteboard.png",
     "frames": 1,
     "w": 253,
     "h": 304
+   },
+   "alarm_off": {
+    "file": "loft_alarm_off.png",
+    "frames": 1,
+    "w": 112,
+    "h": 146
+   },
+   "alarm_on": {
+    "file": "loft_alarm_on.png",
+    "frames": 1,
+    "w": 112,
+    "h": 146,
+    "overlay": true
    }
   }
  }

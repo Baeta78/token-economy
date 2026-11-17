@@ -14,11 +14,12 @@ Needs Pillow (already required by the tray app).
 from __future__ import annotations
 
 import json
+import time
 import re
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "assets-src"
@@ -60,7 +61,8 @@ SKIP = {"ref", "keyart"}  # reference sheets only guide the image model
 KEEP_SIZE = ("bg_",)
 # theme props, scaled to this height in the strip
 PROP_HEIGHT = {"desk": 300, "desk_b": 300, "door_closed": 300, "door_open": 300, "whiteboard": 300,
-               "rug": 300, "plant_small": 160, "plant_tall": 360, "alarm_off": 130, "alarm_on": 130}
+               "rug": 300, "plant_small": 160, "plant_tall": 360, "alarm_off": 130, "alarm_on": 130,
+               "coffee": 340, "sofa": 400, "bookshelf": 440, "chair": 250}
 # per-image heights for poses much lower than the group's tallest one (a curled-up cat)
 NAME_HEIGHT = {"cat_sit": 120, "cat_walk": 100, "cat_stretch": 92, "cat_sleep": 70}
 # frames each strip should have: effects and scattered particles leave empty columns
@@ -106,6 +108,60 @@ def frames(im: Image.Image, expect: int | None = None) -> list[Image.Image]:
     return out
 
 
+# on/off pairs drawn at the same scale, where "on" adds a glow around the object: both get the
+# same cell, scaled alike and lined up by the solid body, so blinking doesn't change the size
+PAIRS = {"loft_alarm_on": "loft_alarm_off"}
+CORE_ALPHA = 250  # the glow is translucent; the object itself is fully opaque
+
+
+def aligned_pair(images: list[Image.Image], height: int) -> tuple[list[Image.Image], int, int]:
+    def core_box(im):
+        return im.getchannel("A").point(lambda v: 255 if v >= CORE_ALPHA else 0).getbbox()
+    k = height / (core_box(images[0])[3] - core_box(images[0])[1])
+    scaled, ext = [], [0, 0, 0, 0]   # left, right, up, down from the body's bottom center
+    for im in images:
+        im = im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
+        im = im.crop(im.getchannel("A").point(lambda v: 255 if v > ALPHA_MIN else 0).getbbox())
+        x0, _, x1, y1 = core_box(im)
+        cx, by = (x0 + x1) / 2, y1
+        ext = [max(ext[0], cx), max(ext[1], im.width - cx), max(ext[2], by), max(ext[3], im.height - by)]
+        scaled.append((im, cx, by))
+    half = round(max(ext[0], ext[1])) + 2
+    cw, ch = 2 * half, round(ext[2] + ext[3]) + 4
+    out = []
+    for im, cx, by in scaled:
+        cell = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
+        cell.alpha_composite(im, (round(half - cx), round(ch - 2 - ext[3] - by)))
+        out.append(cell)
+    return out, cw, ch
+
+
+def glow_overlay(off: Image.Image, on: Image.Image) -> Image.Image:
+    """Turns the "on" drawing into a layer drawn over "off": only the lit dome and the glow.
+    The two drawings never match pixel for pixel (the bracket shifts a little), so the bracket
+    always comes from "off", and the lit dome is nudged onto the unlit one first."""
+    import numpy as np
+    a_off, a_on = np.asarray(off).astype(int), np.asarray(on).astype(int)
+
+    def red(a):  # the dome: clearly red and solid
+        return (a[..., 3] >= CORE_ALPHA) & (a[..., 0] > a[..., 1] + 60) & (a[..., 0] > a[..., 2] + 60)
+    m_off, m_on = red(a_off), red(a_on)
+    best = (-1, 0, 0)
+    for dy in range(-8, 9):
+        for dx in range(-8, 9):
+            score = int((np.roll(np.roll(m_on, dy, 0), dx, 1) & m_off).sum())
+            if score > best[0]:
+                best = (score, dx, dy)
+    _, dx, dy = best
+    shifted = Image.new("RGBA", on.size, (0, 0, 0, 0))
+    shifted.alpha_composite(on, (dx, dy))
+    a = np.asarray(shifted).copy()
+    dome = Image.fromarray((m_off * 255).astype("uint8")).filter(ImageFilter.MaxFilter(7))
+    keep = (np.asarray(dome) > 0) | (a[..., 3] < CORE_ALPHA)  # lit dome + translucent glow
+    a[..., 3] = np.where(keep, a[..., 3], 0)
+    return Image.fromarray(a.astype("uint8"))
+
+
 def grid_frames(im: Image.Image) -> list[Image.Image]:
     """Icon sheets: rows split by empty rows, then each row into icons."""
     a = im.getchannel("A").point(lambda v: 255 if v > ALPHA_MIN else 0)
@@ -147,6 +203,8 @@ def main() -> int:
             continue
         if pose in SKIP:
             continue
+        if name in PAIRS.values() or name in PAIRS:
+            continue  # built together after this loop
         im = Image.open(path).convert("RGBA")
         expect = EXPECT.get(name) or (3 if group == "machine" and pose.endswith("_on") else
                                       1 if group == "machine" else None)
@@ -182,7 +240,22 @@ def main() -> int:
             entry["seated"] = True
         manifest.setdefault(group, {})[pose] = entry
         print(f"{name}: {len(parts)} frame(s), cell {cw}x{ch}")
-    (OUT / "manifest.json").write_text(json.dumps({"stand": STAND, "sprites": manifest}, indent=1), encoding="utf-8")
+    for on, off in PAIRS.items():
+        paths = {p.stem: p for p in SRC.rglob("*.png") if p.stem in (on, off)}
+        if len(paths) < 2:
+            continue
+        group, off_pose = off.split("_", 1)
+        cells, cw, ch = aligned_pair([Image.open(paths[n]).convert("RGBA") for n in (off, on)],
+                                     PROP_HEIGHT.get(off_pose, 300))
+        cells[1] = glow_overlay(cells[0], cells[1])  # "on" is drawn over "off", never instead of it
+        for n, cell in zip((off, on), cells):
+            cell.save(OUT / f"{n}.png", optimize=True)
+            manifest.setdefault(group, {})[n.split("_", 1)[1]] = {"file": f"{n}.png", "frames": 1, "w": cw, "h": ch,
+                                                                   **({"overlay": True} if n == on else {})}
+        print(f"{off} + {on}: same cell {cw}x{ch}; {on} is a glow layer over {off}")
+    # "v" changes on every build so browsers fetch the new images instead of cached ones
+    (OUT / "manifest.json").write_text(json.dumps({"stand": STAND, "v": int(time.time()), "sprites": manifest}, indent=1),
+                                       encoding="utf-8")
     return 0
 
 

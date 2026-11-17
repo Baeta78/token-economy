@@ -50,7 +50,7 @@
       for (const [group, poses] of Object.entries(m.sprites || {})) {
         for (const [pose, e] of Object.entries(poses)) {
           const img = new Image();
-          img.src = "sprites/" + e.file;
+          img.src = "sprites/" + e.file + (m.v ? "?v=" + m.v : "");
           (SPR[group] ||= {})[pose] = { ...e, img };
           jobs.push(img.decode().catch(() => {}));
         }
@@ -70,6 +70,7 @@
     ctx.save();
     ctx.globalAlpha = opt.alpha ?? 1;
     ctx.translate(x, y);
+    if (opt.shear) ctx.transform(1, opt.shear, 0, 1, 0, 0);  // vertical skew: match a wall's slope
     if (opt.mirror) ctx.scale(-1, 1);
     ctx.scale(1 / sy ** 0.5, sy);
     ctx.drawImage(s.img, f * s.w, 0, s.w, s.h, -dw / 2, -dh + 2 * k, dw, dh);
@@ -252,7 +253,8 @@
   // props drawn in depth order with the people
   // ---------------------------------------------------------------------------
   function drawChair(x, y) {
-    if (drawSprite("loft", "chair", 0, x - 6, y + 4, { scale: 0.5 })) return;
+    // the chair art faces down-left; people sit facing their desk, down-right
+    if (drawSprite("loft", "chair", 0, x - 6, y + 4, { scale: 0.5, mirror: true })) return;
     ctx.fillStyle = "#3b3f4a"; roundRect(ctx, x - 34, y - 150, 50, 82, 12); ctx.fill();
     ctx.fillStyle = "#2a9d9a"; roundRect(ctx, x - 30, y - 144, 42, 20, 8); ctx.fill();
     ctx.fillStyle = "#3b3f4a"; roundRect(ctx, x - 40, y - 74, 84, 16, 7); ctx.fill();
@@ -379,8 +381,10 @@
     if (ART) {
       // door on the brick wall, left of the window; the rug lies on the floor under the lounge
       drawSprite("loft", "rug", 0, 330, 790, { scale: 0.6 });
-      if (!drawSprite("loft", open ? "door_open" : "door_closed", 0, 85, 552, { scale: 0.83 })) {
-        drawSprite("loft", "door_closed", 0, 85, 552, { scale: 0.83 });
+      // the door art is drawn steeper than the brick wall (its bottom rises 0.42 px per px, the
+      // baseboard 0.25): a vertical skew lines its foot up with the floor along the wall
+      if (!(open && drawSprite("loft", "door_open", 0, 79, 563, { scale: 0.83, shear: 0.165 }))) {
+        drawSprite("loft", "door_closed", 0, 79, 565, { scale: 0.83, shear: 0.167 });
       }
       return;
     }
@@ -648,7 +652,9 @@
       rg.addColorStop(0, "rgba(255,60,50,.42)"); rg.addColorStop(1, "rgba(255,60,50,0)");
       ctx.fillStyle = rg; ctx.fillRect(ALARM.x - 150, ALARM.y - 200, 300, 300);
     }
-    drawSprite("loft", blink ? "alarm_on" : "alarm_off", 0, ALARM.x, ALARM.y, { scale: 0.5 });
+    // the lamp itself never changes; when lit, the glow layer goes on top of it
+    drawSprite("loft", "alarm_off", 0, ALARM.x, ALARM.y, { scale: 0.5 });
+    if (blink) drawSprite("loft", "alarm_on", 0, ALARM.x, ALARM.y, { scale: 0.5 });
   }
 
   // the cat strolls between a few cozy spots, sits a while, naps in the sun and stretches after
@@ -1061,7 +1067,10 @@
       items.push([405, () => drawCoffeeCounter(700, 405)]);
       items.push([640, () => drawSofa(330, 640)]);
       items.push([752, () => drawSprite("loft", "whiteboard", 0, 1430, 752, { scale: 0.6 })]);
-      items.push([430, () => drawPlant(555, 430, 1)]);
+      if (SPR.loft && SPR.loft.bookshelf) {
+        items.push([440, () => drawSprite("loft", "bookshelf", 0, 560, 440, { scale: 0.5 })]);
+        items.push([392, () => drawPlant(805, 392, 1)]);   // the small plant moves to the corner
+      } else items.push([430, () => drawPlant(555, 430, 1)]);
       items.push([640, () => drawPlant(1555, 640, 1.3)]);
       items.push([726, () => drawPlant(70, 726, 1.2)]);
       if (SPR.loft && SPR.loft.alarm_off) items.push([ALARM.y, () => drawAlarm(t)]);
