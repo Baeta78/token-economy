@@ -133,8 +133,12 @@ _lock_file = None  # kept open for the life of the process (macOS / Linux single
 def already_running() -> bool:
     global _lock_file
     if WIN:
-        ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\TokenEconomyTray")
-        return ctypes.windll.kernel32.GetLastError() == 183  # ERROR_ALREADY_EXISTS
+        k32 = ctypes.windll.kernel32
+        h = k32.CreateMutexW(None, False, "Local\\TokenEconomyTray")
+        if k32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+            k32.CloseHandle(h)  # don't keep the other instance's mutex alive (a restart waits for it)
+            return True
+        return False
     import fcntl
 
     try:
@@ -453,6 +457,20 @@ class App:
     def quit(self, *_):
         self.icon.stop()
 
+    def restart(self):
+        """After an update: starts the new version and closes this one."""
+        log("updated, restarting")
+        try:
+            import server
+
+            server.stop()  # no collection half written when this process ends
+            subprocess.Popen([pythonw(), str(BASE / "tray.py"), "--restarted"], cwd=BASE, **_detached())
+        except Exception:  # noqa: BLE001
+            log(traceback.format_exc())
+            return
+        threading.Timer(5, os._exit, (0,)).start()  # in case the icon loop doesn't end by itself
+        on_ui_thread(self.icon.stop)
+
     def run(self):
         threading.Thread(target=self.loop, daemon=True).start()
         self.icon.run()
@@ -460,17 +478,38 @@ class App:
 
 def main():
     os.chdir(BASE)
-    if already_running():
+    restarted = "--restarted" in sys.argv[1:]
+    if restarted:
+        # started by the previous version after an update: wait for it to finish closing
+        end = time.time() + 30
+        while already_running():
+            if time.time() > end:
+                log("restart: the previous instance did not close")
+                return
+            time.sleep(0.5)
+    elif already_running():
         open_panel()
         return
-    try:
-        import server
+    own_server = False
+    for attempt in range(20 if restarted else 1):
+        try:
+            import server
 
-        server.start(PORT, 60)
-    except OSError:
-        # port in use: server.py is probably already running on its own; use it
-        log("port in use, using the server that is already running")
-    App().run()
+            server.start(PORT, 60)
+            own_server = True
+            break
+        except OSError:
+            if attempt + 1 < (20 if restarted else 1):
+                time.sleep(0.5)  # the old process may still be releasing the port
+                continue
+            # port in use: server.py is probably already running on its own; use it
+            log("port in use, using the server that is already running")
+    app = App()
+    if own_server:  # a server.py running on its own updates itself
+        import updater
+
+        updater.start_auto(app.restart)
+    app.run()
 
 
 if __name__ == "__main__":

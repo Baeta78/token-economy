@@ -1422,6 +1422,18 @@ async function loadUpdate(force) {
   renderUpdate();
 }
 
+// after an update the server restarts: reload the page once the new version answers
+async function waitForVersion(v, tries = 90) {
+  for (let i = 0; i < tries; i++) {
+    await new Promise((ok) => setTimeout(ok, 2000));
+    try {
+      const u = await (await fetch("/api/update", { cache: "no-store" })).json();
+      if (u.current === v) return location.reload();
+    } catch { /* still restarting */ }
+  }
+  renderUpdate(t("update.done", { v }));
+}
+
 function renderUpdate(msg) {
   const el = document.getElementById("update-box");
   if (!el) return;
@@ -1440,15 +1452,29 @@ function renderUpdate(msg) {
       + `<button class="btn primary" id="btn-update-install">${esc(t("update.install"))}</button> `
       + (u.url ? `<a class="btn" href="${esc(u.url)}" target="_blank" rel="noopener">GitHub</a>` : "");
   }
+  if (!u.demo) html += `<label class="check"><input type="checkbox" id="set-auto-update"> <span>${esc(t("update.auto"))}</span></label>`;
   if (msg) html += `<p class="update-msg">${esc(msg)}</p>`;
   el.innerHTML = html;
+  const cb = document.getElementById("set-auto-update");
+  if (cb) {
+    cb.checked = S.config?.auto_update !== false;
+    cb.onchange = async () => {
+      const r = await post("/api/config", { auto_update: cb.checked });
+      if (r.ok) S.config = await r.json();
+    };
+  }
   const b = document.getElementById("btn-update-install");
   if (b) b.onclick = async () => {
     b.disabled = true;
     b.textContent = t("update.installing");
     let r, body;
     try { r = await post("/api/update/apply"); body = await r.json(); } catch (e) { body = { error: String(e) }; }
-    if (r?.ok && body.updated) { S.update = { ...S.update, newer: false }; renderUpdate(t("update.done", { v: body.version })); }
+    if (r?.ok && body.updated && body.restart) {
+      S.update = { ...S.update, newer: false };
+      renderUpdate(t("update.restarting", { v: body.version }));
+      waitForVersion(body.version);
+    }
+    else if (r?.ok && body.updated) { S.update = { ...S.update, newer: false }; renderUpdate(t("update.done", { v: body.version })); }
     else renderUpdate(body.error === "local_changes" ? t("update.local_changes") : t("update.failed", { e: body.error || "?" }));
   };
 }

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import threading
 import time
@@ -65,6 +66,8 @@ def write_config(new: dict) -> dict:
         cfg["ai"] = current
     if isinstance(new.get("claude_limits"), bool):
         cfg["claude_limits"] = new["claude_limits"]
+    if isinstance(new.get("auto_update"), bool):
+        cfg["auto_update"] = new["auto_update"]
     if isinstance(new.get("subscriptions"), list):
         items = []
         for a in new["subscriptions"][:12]:
@@ -123,11 +126,24 @@ def collect():
         state["collecting"] = False
 
 
+stopping = threading.Event()
+
+
 def loop(interval: int):
-    while True:
+    while not stopping.is_set():
         collect()
         request.wait(interval)
         request.clear()
+
+
+def stop(timeout: float = 90) -> None:
+    """Ends the collection loop and waits for a collection in progress, so a restart never
+    has two processes writing .cache/ at the same time."""
+    stopping.set()
+    request.set()
+    end = time.time() + timeout
+    while state["collecting"] and time.time() < end:
+        time.sleep(0.2)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -218,7 +234,10 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(b'{"ok":true}', 202)
         if self.path.startswith("/api/update/apply"):
             try:
-                return self._json(json.dumps(updater.apply()).encode("utf-8"))
+                res = updater.apply()
+                if res.get("updated"):
+                    res["restart"] = updater.restart_soon()  # after this answer reaches the panel
+                return self._json(json.dumps(res).encode("utf-8"))
             except Exception as e:  # noqa: BLE001
                 return self._json(json.dumps({"error": str(e)}).encode("utf-8"), 409)
         if self.path.startswith("/api/refresh"):
@@ -281,10 +300,31 @@ def main():
     print(f"Token Economy{' (demo data)' if args.demo else ''}: {url}  (Ctrl+C)")
     if not args.no_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    restart = threading.Event()
+
+    def request_restart():
+        restart.set()
+        srv.shutdown()  # serve_forever below returns, and main restarts the process
+
+    updater.start_auto(request_restart)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
         pass
+    srv.server_close()
+    if restart.is_set():
+        stop()
+        print("Token Economy was updated; restarting...", flush=True)
+        argv = [sys.executable, str(Path(__file__).resolve()), *[a for a in sys.argv[1:] if a != "--no-browser"], "--no-browser"]
+        if sys.platform == "win32":
+            # Windows has no real exec: run the new version in this same console and wait for it,
+            # so start.bat's "pause" and the window stay with the running server
+            import subprocess
+            try:
+                sys.exit(subprocess.call(argv))
+            except KeyboardInterrupt:
+                sys.exit(0)
+        os.execv(sys.executable, argv)
 
 
 if __name__ == "__main__":
