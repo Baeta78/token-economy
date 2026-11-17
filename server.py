@@ -126,6 +126,19 @@ def collect():
         state["collecting"] = False
 
 
+def limit_level() -> float:
+    """Tightest plan limit right now, in % (the office's alarm lamp; same rule as the tray icon):
+    a window that runs out before it resets counts as at least 70%."""
+    wins = (((state["data"] or {}).get("limits") or {}).get("windows")) or []
+    worst = 0.0
+    for j in wins:
+        try:
+            worst = max(worst, float(j.get("pct") or 0), 70.0 if j.get("runs_out_before_reset") else 0.0)
+        except (TypeError, ValueError, AttributeError):
+            continue
+    return worst
+
+
 stopping = threading.Event()
 
 
@@ -199,6 +212,19 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(json.dumps(body, ensure_ascii=False).encode("utf-8"))
         if self.path.startswith("/api/update"):
             return self._json(json.dumps(updater.check(force="force=1" in self.path)).encode("utf-8"))
+        if self.path.startswith("/api/live"):
+            if runtime.DEMO:  # the office page runs its own simulation in demo mode
+                return self._json(b'{"demo":true}')
+            import live
+            from urllib.parse import parse_qs, urlparse
+            q = parse_qs(urlparse(self.path).query)
+            try:
+                after = int((q.get("after") or ["0"])[0])
+            except ValueError:
+                after = 0
+            body = live.feed(after)
+            body["limit"] = limit_level()
+            return self._json(json.dumps(body, ensure_ascii=False).encode("utf-8"))
         if self.path.startswith("/api/status"):
             body = json.dumps({"status": state["status"], "collecting": state["collecting"], "error": state["error"]}, ensure_ascii=False)
             return self._json(body.encode("utf-8"))

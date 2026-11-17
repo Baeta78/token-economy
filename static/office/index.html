@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Economy · Escritório</title>
+<link rel="stylesheet" href="office.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="scene"></canvas>
+  <div id="hud">
+    <div class="pill"><span class="k" data-t="agents"></span><b id="h-agents">0</b></div>
+    <div class="pill"><span class="k" data-t="tokens"></span><b id="h-tokens">0</b></div>
+    <div class="pill save"><span class="k" data-t="saved"></span><b id="h-saved">0</b></div>
+    <div class="pill"><span class="k" data-t="tools"></span><b id="h-tools">0</b></div>
+    <span id="h-mode" class="mode"></span>
+  </div>
+  <div id="feed"><div class="title" data-t="activity"></div><ol id="feed-list"></ol></div>
+  <div id="empty" hidden><b data-t="emptyTitle"></b><span data-t="emptySub"></span></div>
+</div>
+<script src="office.js"></script>
+</body>
+</html>

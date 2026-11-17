@@ -1514,7 +1514,7 @@ function renderDonate() {
 // ---------------------------------------------------------------------------
 // tabs: one section at a time
 // ---------------------------------------------------------------------------
-const TABS = ["summary", "overview", "limits", "models", "savings", "projects", "tools", "tips", "sources"];
+const TABS = ["summary", "office", "overview", "limits", "models", "savings", "projects", "tools", "tips", "sources"];
 function currentTab() {
   const h = location.hash.replace("#", "");
   return TABS.includes(h) ? h : "summary";
@@ -1524,6 +1524,9 @@ function showTab() {
   const a = currentTab();
   document.querySelectorAll(".section").forEach((s) => (s.hidden = s.id !== a));
   document.querySelectorAll("#tabs a").forEach((l) => l.classList.toggle("active", l.getAttribute("href") === "#" + a));
+  // the live office only loads (and polls) once its tab is opened
+  const of = document.getElementById("office-frame");
+  if (a === "office" && !of.src) of.src = "office/" + (location.search.includes("demo") ? "?demo=1" : "");
   // charts measure their space when drawn: redraw the tab that just appeared
   renderAll();
   window.scrollTo({ top: 0 });

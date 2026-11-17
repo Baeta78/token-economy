@@ -140,6 +140,7 @@ h2 { font-size: 14px; margin: 0; font-weight: 600; }
 
 main { padding: 20px 24px 60px; max-width: 1480px; margin: 0 auto; }
 .section { margin-bottom: 36px; }
+.office-frame { display: block; width: 100%; height: calc(100vh - 150px); min-height: 420px; border: 0; border-radius: 14px; background: #1d1a24; }
 .section::before { content: ""; display: block; }
 
 .loading { display: grid; place-items: center; gap: 6px; padding: 120px 0; text-align: center; }
