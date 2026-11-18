@@ -444,18 +444,21 @@
 
   function newAgent(s, entering) {
     const chars = characters();
-    const used = [...agents.values()].map((a) => a.char);
+    const inside = [...agents.values()].filter((a) => !a.leaving);   // one walking out frees its character
+    const used = inside.map((a) => a.char);
     let char = chars.find((c) => !used.includes(c));
     if (!char && chars.length) char = chars[hash(s.id) % chars.length];
     const base = CHAR_NAMES[char] || "Agent";
-    const twins = [...agents.values()].filter((a) => a.char === char).length;
-    const desk = DESKS.find((d) => !d.owner) || DESKS[hash(s.id) % DESKS.length];
+    const twins = inside.filter((a) => a.char === char).length;
+    // a free desk, or the one someone is walking out of right now
+    const desk = DESKS.find((d) => !d.owner) || DESKS.find((d) => agents.get(d.owner)?.leaving)
+      || DESKS[hash(s.id) % DESKS.length];
     desk.owner = s.id;
     const a = {
       id: s.id, agent: s.agent, project: s.project || "", char, name: twins ? `${base} ${["", "II", "III", "IV"][twins] || twins + 1}` : base,
       desk, x: entering ? DOOR.x : desk.x, y: entering ? DOOR.y : desk.y, path: null, place: "desk", pose: "think",
       mirror: false, frame: 0, busyUntil: 0, queue: [], bubble: null, celebrateUntil: 0, last: now(), alpha: entering ? 0 : 1,
-      leaving: false, spot: null, seed: Math.random() * 10,
+      leaving: false, spot: null, seed: Math.random() * 10, sessions: new Map([[s.id, s.project || ""]]),
     };
     agents.set(s.id, a);
     if (entering) { doorOpenUntil = now() + 1.6; goTo(a, "desk"); }
@@ -464,17 +467,31 @@
 
   function napsAtDesk(a) { return !!(SPR[a.char] && SPR[a.char].sleep && SPR[a.char].sleep.seated); }
 
+  // standing spots are reserved: each agent keeps its slot until it goes elsewhere, so a newcomer
+  // takes the next free one instead of landing on top of whoever is already there
+  function freeSlot(a, place, key) {
+    const taken = new Set([...agents.values()]
+      .filter((o) => o !== a && o.place === place && o.slotKey === key && o.slot != null).map((o) => o.slot));
+    let i = 0;
+    while (taken.has(i)) i++;
+    a.slot = i; a.slotKey = key;
+    return i;
+  }
+  // past the listed spots, line up beside the last one
+  const slotAt = (list, i) => (i < list.length ? list[i]
+    : { x: list[list.length - 1].x - 70 * (i - list.length + 1), y: list[list.length - 1].y + 8 * (i - list.length + 1) });
+
   function spotFor(a, place, extra) {
     if (place === "desk") return { x: a.desk.x, y: a.desk.y };
-    if (place === "coffee") return COFFEE[[...agents.values()].filter((o) => o !== a && o.place === "coffee").length % COFFEE.length];
+    if (place === "coffee") return slotAt(COFFEE, freeSlot(a, "coffee", "coffee"));
     if (place === "nap") {
       // a nap drawn seated (head on the arms) happens in the desk chair; a standing one by the sofa
       if (napsAtDesk(a)) return { x: a.desk.x, y: a.desk.y };
-      return NAP[[...agents.values()].filter((o) => o !== a && o.place === "nap" && !napsAtDesk(o)).length % NAP.length];
+      return slotAt(NAP, freeSlot(a, "nap", "sofa"));
     }
     if (place === "door") return DOOR;
     if (place === "machine") {
-      const m = extra; const n = m.users;
+      const m = extra; const n = freeSlot(a, "machine", m.cat);
       return ART ? { x: m.x + 60 + n * 36, y: m.y + 62 + n * 14 } : { x: m.x + 66 + n * 40, y: m.y + 72 + n * 18 };
     }
     return { x: a.x, y: a.y };
@@ -482,6 +499,7 @@
 
   function goTo(a, place, extra) {
     if (a.place === "machine" && a.machine) { a.machine.users = Math.max(0, a.machine.users - 1); a.machine = null; }
+    a.slot = null; a.slotKey = null;
     const to = spotFor(a, place, extra);
     a.place = place;
     if (place === "machine") { a.machine = extra; extra.users++; }
@@ -734,25 +752,54 @@
   // data in: apply one /api/live answer
   // ---------------------------------------------------------------------------
   let seq = 0, started = false;
+  // One person per desk. With more open sessions than desks, a person works on several projects
+  // at once (one Nina on "sonora · maestro-work") instead of a second copy of her: the label lists
+  // every project, everything any of them does shows on her, and she only naps when all are idle.
+  const owner = new Map();   // session id -> id of the person working on it
+  const agentFor = (sid) => agents.get(owner.get(sid));
+
   function apply(r, first) {
     const t = now();
     const ids = new Set(r.sessions.map((s) => s.id));
-    for (const s of r.sessions) {
-      let a = agents.get(s.id);
+    for (const [sid, aid] of owner) {
+      if (ids.has(sid)) continue;
+      owner.delete(sid);
+      const a = agents.get(aid);
+      if (!a) continue;
+      a.sessions.delete(sid);
+      if (!a.sessions.size && !a.leaving) { a.leaving = true; a.queue = []; goTo(a, "door"); }
+    }
+    // newest first, so after a restart the busiest sessions get their own person
+    const recent = r.sessions.slice().sort((p, q) => (q.last || 0) - (p.last || 0));
+    for (const s of recent) {
+      let a = agentFor(s.id);
+      const idle = r.now - (s.last || 0) > 240;
       if (!a) {
-        a = newAgent(s, !first);
-        if (first && r.now - s.last > 240) { a.place = "nap"; const p = spotFor(a, "nap"); a.x = p.x; a.y = p.y; a.pose = "sleep"; }
+        const inside = [...agents.values()].filter((o) => !o.leaving);
+        if (inside.length < DESKS.length) {
+          a = newAgent(s, !first);
+          if (first && idle) { a.place = "nap"; const p = spotFor(a, "nap"); a.x = p.x; a.y = p.y; a.pose = "sleep"; }
+        } else {
+          // the person with the fewest projects takes it on (same agent kind first)
+          a = inside.reduce((p, o) => {
+            const k = (x) => x.sessions.size * 2 + (x.agent === s.agent ? 0 : 1);
+            return k(o) < k(p) ? o : p;
+          });
+          a.sessions.set(s.id, s.project || "");
+          if (first && !idle && a.place === "nap") { a.place = "desk"; a.x = a.desk.x; a.y = a.desk.y; a.pose = "think"; a.slot = null; }
+        }
+        owner.set(s.id, a.id);
       }
-      a.project = s.project || a.project;
+      a.sessions.set(s.id, s.project || a.sessions.get(s.id) || "");
+    }
+    for (const a of agents.values()) {
+      if (!a.leaving) a.project = [...new Set(a.sessions.values())].filter(Boolean).join(" · ");
     }
     tokensTotal = r.sessions.reduce((n, s) => n + (s.tokens || 0), 0);
     limitPct = r.limit || 0;
-    for (const [id, a] of agents) {
-      if (!ids.has(id) && !a.leaving) { a.leaving = true; a.queue = []; goTo(a, "door"); }
-    }
     if (!first) {
       for (const e of r.events) {
-        const a = agents.get(e.session);
+        const a = agentFor(e.session);
         if (!a) continue;
         if (e.kind === "tokens") {
           if (e.sub) continue;
@@ -847,6 +894,31 @@
   // ---------------------------------------------------------------------------
   // update + draw
   // ---------------------------------------------------------------------------
+  // Body collider: each person standing on the floor is an ellipse at the feet (wide, flat, like
+  // the floor in this view). Two that overlap slide apart sideways until they stand side by side.
+  // Seated agents stay in their chair and only push the others; walkers pass by and are not pushed.
+  const BODY = { rx: 34, ry: 14 };
+  function separate(dt) {
+    const list = [...agents.values()].filter((a) => a.alpha > 0.3);
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i], b = list[j];
+        const dx = (b.x - a.x) / (2 * BODY.rx), dy = (b.y - a.y) / (2 * BODY.ry);
+        const d = Math.hypot(dx, dy);
+        if (d >= 1 || a.path || b.path) continue;
+        const fixedA = a.place === "desk" || (a.place === "nap" && napsAtDesk(a));
+        const fixedB = b.place === "desk" || (b.place === "nap" && napsAtDesk(b));
+        if (fixedA && fixedB) continue;
+        // push mostly sideways; exactly on top of each other: split by id so it is stable
+        const ux = d > 0.01 ? dx / d : (a.id < b.id ? 1 : -1), uy = d > 0.01 ? dy / d : 0;
+        const push = Math.min(1 - d, 0.5) * 2 * BODY.rx * Math.min(1, dt * 6);
+        const share = fixedA || fixedB ? 1 : 0.5;
+        if (!fixedA) { a.x -= ux * push * share; a.y -= uy * push * share * (BODY.ry / BODY.rx); }
+        if (!fixedB) { b.x += ux * push * share; b.y += uy * push * share * (BODY.ry / BODY.rx); }
+      }
+    }
+  }
+
   function update(dt, t) {
     for (const [id, a] of agents) {
       // next queued event when the current one had its moment
@@ -866,7 +938,7 @@
         else { a.x += (dx / d) * sp; a.y += (dy / d) * sp; a.dir = { dx, dy }; }
         a.frame += dt * 8.5;
         if (!a.path && a.place === "machine" && a.machine) a.machine.active = t + 2.6;
-        if (!a.path && a.leaving) { puff(a.x, a.y - 60); doorOpenUntil = t + 1; agents.delete(id); a.desk.owner = null; bots.delete(id); }
+        if (!a.path && a.leaving) { puff(a.x, a.y - 60); doorOpenUntil = t + 1; agents.delete(id); if (a.desk.owner === id) a.desk.owner = null; bots.delete(id); }
       } else {
         a.frame += dt * (a.pose === "type" ? 5 : 1);
       }
@@ -874,6 +946,7 @@
       a.alpha = Math.min(1, a.alpha + dt * 2.5);
       if (a.bubble && a.bubble.until < t) a.bubble = null;
     }
+    separate(dt);
     for (const [id, b] of bots) {
       const a = agents.get(id);
       b.alpha = Math.min(1, b.alpha + dt * 2);
@@ -885,7 +958,18 @@
     for (let i = fx.length - 1; i >= 0; i--) if (t - fx[i].born > fx[i].life) fx.splice(i, 1);
   }
 
-  function drawAgent(a, t) {
+  // Napping in the chair: the legs stay hidden behind the desk like when typing, but the head and
+  // arms rest on the desk top, so that part is drawn again over the desk (over its lamp or plant).
+  const NAP_CUT = -55;   // the desk top, relative to the seat
+  const deskNap = (a) => ART && a.place === "nap" && !a.path && a.pose === "sleep" && napsAtDesk(a);
+  function drawNapTop(a, t) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(a.x - 220, a.y - 420, 440, 420 + NAP_CUT); ctx.clip();
+    drawAgent(a, t, true);
+    ctx.restore();
+  }
+
+  function drawAgent(a, t, top = false) {
     let pose = a.pose, mirror = false, y = a.y, squash = 1;
     const chars = !!a.char;
     if (a.path) {
@@ -914,6 +998,7 @@
     if (pose === "type") frame = Math.sin(t * 9 + a.seed) > 0.2 ? 1 : 0;
     if (pose === "machine") frame = Math.floor(t * 3) % 2;
     const ok = chars && drawSprite(a.char, pose, frame, a.x, y, { mirror, alpha: a.alpha, squash });
+    if (top) return;
     if (!ok) drawStickFigure(a, y);
     if (a.place === "nap" && !a.path) {
       ctx.font = "600 22px 'Segoe UI', system-ui"; ctx.fillStyle = "rgba(60,60,110,.8)";
@@ -1081,7 +1166,10 @@
       items.push([372, () => drawPlant(800, 372, 1)]);
       items.push([880, () => drawPlant(120, 880, 1.2)]);
     }
-    for (const a of agents.values()) items.push([a.y, () => drawAgent(a, t)]);
+    for (const a of agents.values()) {
+      items.push([a.y, () => drawAgent(a, t)]);
+      if (deskNap(a)) items.push([a.y + DESK_OFF.y + 1, () => drawNapTop(a, t)]);
+    }
     for (const b of bots.values()) items.push([b.y + 150, () => drawBot(b, t)]);
     items.sort((p, q) => p[0] - q[0]);
     for (const [, draw] of items) draw();
