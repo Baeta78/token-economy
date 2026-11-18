@@ -1,6 +1,6 @@
 {
  "stand": 360,
- "v": 1794956226,
+ "v": 1794966020,
  "sprites": {
   "bot": {
    "float": {
@@ -469,9 +469,10 @@
    "sleep": {
     "file": "nina_sleep.png",
     "frames": 1,
-    "w": 144,
-    "h": 353,
-    "faces": "right"
+    "w": 138,
+    "h": 267,
+    "faces": "right",
+    "seated": true
    },
    "think": {
     "file": "nina_think.png",

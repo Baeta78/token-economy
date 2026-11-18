@@ -44,14 +44,14 @@ FACES_OVERRIDE = {"theo_walk_back": "right", "theo_idle": "right", "theo_idle_b"
                   "bruno_idle": "right", "bruno_idle_b": "right", "bruno_coffee": "right", "bruno_celebrate": "right",
                   "maya_idle": "right", "maya_idle_b": "right", "maya_coffee": "right", "maya_celebrate": "right"}
 # per-image height exceptions (seated naps, poses drawn at another scale); tuned by eye
-HEIGHT_OVERRIDE = {"theo_sleep": 0.73, "theo_think": 0.88, "kai_sleep": 0.73, "kai_think": 0.88,
+HEIGHT_OVERRIDE = {"nina_sleep": 0.73, "theo_sleep": 0.73, "theo_think": 0.88, "kai_sleep": 0.73, "kai_think": 0.88,
                    "kai_coffee": 0.93, "kai_celebrate": 0.92, "lia_type": 0.95,
                    "lia_sleep": 0.85, "lia_think": 0.9, "lia_celebrate": 0.93,
                    "bruno_type": 0.8, "bruno_sleep": 0.72, "bruno_think": 0.82,
                    "bruno_coffee": 0.92, "bruno_celebrate": 0.92,
                    "maya_idle": 1.05, "maya_idle_b": 1.05, "maya_sleep": 0.8, "maya_think": 0.88}
 # naps drawn seated (head on folded arms) happen in the desk chair; standing ones by the sofa
-SEATED = {"theo_sleep", "kai_sleep", "lia_sleep", "bruno_sleep", "maya_sleep"}
+SEATED = {"nina_sleep", "theo_sleep", "kai_sleep", "lia_sleep", "bruno_sleep", "maya_sleep"}
 # characters drawn taller or shorter than the rest (Bruno is described as tall)
 CHAR_SCALE = {"bruno": 1.06}
 CHARACTERS = {"nina", "theo", "kai", "lia", "bruno", "maya"}
