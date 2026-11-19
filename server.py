@@ -166,6 +166,13 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, *_):
         pass
 
+    def end_headers(self):
+        # pages and scripts: the browser checks for a newer file on every load (a cheap 304
+        # when unchanged), so an update shows up without an old office.js stuck in its cache
+        if not self.path.startswith("/api/"):
+            self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
     def _json(self, body: bytes, code: int = 200):
         if runtime.DEMO:
             body = _demo_mask(body)

@@ -13,17 +13,17 @@
   // text
   // ---------------------------------------------------------------------------
   const TEXT = {
-    pt: { agents: "agentes", tokens: "tokens", saved: "economizados", tools: "ferramentas", activity: "Atividade",
+    pt: { cost: "gasto", unitHint: "Mostrar em tokens ou em dólares", agents: "agentes", tokens: "tokens", saved: "economizados", tools: "ferramentas", activity: "Atividade",
       emptyTitle: "Ninguém trabalhando agora", emptySub: "Os agentes aparecem aqui quando uma sessão do Claude Code ou do Codex está ativa.",
       demo: "simulação", offline: "sem conexão com o painel", newTask: "nova tarefa", done: "terminou", thinking: "pensando…",
       waiting: "esperando", saving: "economizou", subagent: "chamou um ajudante",
       cat: { command_output: "Compactador", code_index: "Mapa de código", proxy: "Filtro", memory: "Memória", response_style: "Texto curto", mcp: "MCP" } },
-    en: { agents: "agents", tokens: "tokens", saved: "saved", tools: "tools", activity: "Activity",
+    en: { cost: "spent", unitHint: "Show tokens or dollars", agents: "agents", tokens: "tokens", saved: "saved", tools: "tools", activity: "Activity",
       emptyTitle: "Nobody is working right now", emptySub: "Agents show up here while a Claude Code or Codex session is active.",
       demo: "simulation", offline: "can't reach the panel", newTask: "new task", done: "done", thinking: "thinking…",
       waiting: "waiting", saving: "saved", subagent: "called a helper",
       cat: { command_output: "Compactor", code_index: "Code map", proxy: "Filter", memory: "Memory", response_style: "Short replies", mcp: "MCP" } },
-    es: { agents: "agentes", tokens: "tokens", saved: "ahorrados", tools: "herramientas", activity: "Actividad",
+    es: { cost: "gastado", unitHint: "Mostrar en tokens o en dólares", agents: "agentes", tokens: "tokens", saved: "ahorrados", tools: "herramientas", activity: "Actividad",
       emptyTitle: "Nadie está trabajando ahora", emptySub: "Los agentes aparecen aquí mientras una sesión de Claude Code o Codex está activa.",
       demo: "simulación", offline: "sin conexión con el panel", newTask: "nueva tarea", done: "terminó", thinking: "pensando…",
       waiting: "esperando", saving: "ahorró", subagent: "llamó a un ayudante",
@@ -653,7 +653,7 @@
   const hasVault = () => ART && !!(SPR.vault && SPR.vault.items);
 
   function drawVault(t) {
-    // empty, a few coins, full: grows with what was saved while the page is open
+    // empty, a few coins, full: grows with what the open sessions saved
     const f = savedTotal <= 0 ? 0 : savedTotal < 20000 ? 1 : 2;
     const bump = vaultBump > t ? 1 + Math.sin((vaultBump - t) * 14) * 0.06 * (vaultBump - t) : 1;
     ctx.fillStyle = "rgba(0,0,0,.16)";
@@ -727,7 +727,21 @@
   // ---------------------------------------------------------------------------
   // feed + HUD
   // ---------------------------------------------------------------------------
-  let tokensTotal = 0, savedTotal = 0, toolsUsed = 0;
+  let tokensTotal = 0, savedTotal = 0, toolsUsed = 0, tokensUsd = 0, savedUsd = 0;
+  // the counters show tokens or dollars (at the price of each session's model); the choice is remembered
+  let unit = "tokens";
+  try { if (localStorage.getItem("office-unit") === "usd") unit = "usd"; } catch { /* storage blocked */ }
+  function money(n) {
+    const d = n === 0 || n >= 10 ? 2 : n >= 0.1 ? 3 : 4;
+    return "$" + n.toLocaleString("en-US", { minimumFractionDigits: Math.min(d, 2), maximumFractionDigits: d });
+  }
+  const amount = (tokens, usd) => (unit === "usd" && usd != null ? money(usd) : fmt(tokens));
+  function setUnit(u) {
+    unit = u;
+    try { localStorage.setItem("office-unit", u); } catch { /* storage blocked */ }
+    document.querySelectorAll("#h-unit [data-u]").forEach((el) => el.classList.toggle("on", el.dataset.u === u));
+    hud();
+  }
   function log(a, text, saving = false) {
     const li = document.createElement("li");
     if (saving) li.className = "saving";
@@ -742,8 +756,9 @@
   }
   function hud() {
     $("h-agents").textContent = [...agents.values()].filter((a) => !a.leaving).length;
-    $("h-tokens").textContent = fmt(tokensTotal);
-    $("h-saved").textContent = fmt(savedTotal);
+    $("h-tokens-k").textContent = unit === "usd" ? T.cost : T.tokens;
+    $("h-tokens").textContent = amount(tokensTotal, tokensUsd);
+    $("h-saved").textContent = amount(savedTotal, savedUsd);
     $("h-tools").textContent = toolsUsed;
     $("empty").hidden = agents.size > 0 || !started;
   }
@@ -795,7 +810,9 @@
     for (const a of agents.values()) {
       if (!a.leaving) a.project = [...new Set(a.sessions.values())].filter(Boolean).join(" · ");
     }
-    tokensTotal = r.sessions.reduce((n, s) => n + (s.tokens || 0), 0);
+    // totals of the open sessions, counted by the server (the same after a page reload)
+    const sum = (k) => r.sessions.reduce((n, s) => n + (s[k] || 0), 0);
+    tokensTotal = sum("tokens"); tokensUsd = sum("usd"); savedTotal = sum("saved"); savedUsd = sum("saved_usd");
     limitPct = r.limit || 0;
     if (!first) {
       for (const e of r.events) {
@@ -804,11 +821,10 @@
         if (e.kind === "tokens") {
           if (e.sub) continue;
           coins(a.x, a.y - 150, Math.min(6, 1 + Math.floor(Math.log10(Math.max(10, e.total)) - 1)), 330, 30, "#e8b33a");
-          if (e.output > 0) floatText(a.x + 70, a.y - 120, "+" + fmt(e.total), "#b07a10");
+          if (e.output > 0) floatText(a.x + 70, a.y - 120, "+" + amount(e.total, e.usd), "#b07a10");
           continue;
         }
         if (e.kind === "saved") {
-          savedTotal += e.saved || 0;
           const m = machineFor(e.category);
           m.active = t + 2.2; m.last = e.saving_name;
           if (hasVault()) {   // the saved tokens drop into the piggy-bank safe
@@ -816,8 +832,9 @@
             sparkle(VAULT.x, VAULT.y - 50, 0.55, 1.2);
             vaultBump = t + 1.6;
           } else coins(m.x, m.y - 150, 5, 520, 30, "#3fbf7f");
-          floatText(m.x, m.y - 190, "−" + fmt(e.saved || 0), "#1f8a5b");
-          log(a, "🪙 " + e.saving_name + " " + T.saving + " " + fmt(e.saved || 0) + " tokens", true);
+          floatText(m.x, m.y - 190, "−" + amount(e.saved || 0, e.usd), "#1f8a5b");
+          log(a, "🪙 " + e.saving_name + " " + T.saving + " " + fmt(e.saved || 0) + " tokens"
+            + (e.usd ? " (" + money(e.usd) + ")" : ""), true);
           continue;
         }
         if (e.kind === "say") { handle(a, e); continue; }
@@ -878,9 +895,14 @@
           else e = pick(tools)();
           evs.push({ ...e, ts, session: s.id, agent: s.agent, sub: e.tool === "Agent" ? false : Math.random() < 0.08, seq: ++n });
           const tot = 2000 + Math.floor(Math.random() * 40000);
-          s.tokens += tot;
-          evs.push({ kind: "tokens", ts, session: s.id, agent: s.agent, total: tot, output: 300, seq: ++n });
-          if (e.saving === "rtk") evs.push({ kind: "saved", ts, session: s.id, agent: s.agent, saving: "rtk", saving_name: "RTK", category: "command_output", saved: 800 + Math.floor(Math.random() * 6000), seq: ++n });
+          const usd = tot * 1.2 / 1e6;                 // about what a cache-heavy agent turn costs
+          s.tokens += tot; s.usd = (s.usd || 0) + usd;
+          evs.push({ kind: "tokens", ts, session: s.id, agent: s.agent, total: tot, output: 300, usd, seq: ++n });
+          if (e.saving === "rtk") {
+            const saved = 800 + Math.floor(Math.random() * 6000), sUsd = saved * 3 / 1e6;
+            s.saved = (s.saved || 0) + saved; s.saved_usd = (s.saved_usd || 0) + sUsd;
+            evs.push({ kind: "saved", ts, session: s.id, agent: s.agent, saving: "rtk", saving_name: "RTK", category: "command_output", saved, usd: sUsd, seq: ++n });
+          }
         }
         s.last = ts;
       }
@@ -1204,6 +1226,9 @@
       T = TEXT[lang] || TEXT.pt;
     } catch { /* keep Portuguese */ }
     applyText();
+    $("h-unit").title = T.unitHint;
+    $("h-unit").addEventListener("click", (ev) => { const u = ev.target.dataset && ev.target.dataset.u; if (u) setUnit(u); });
+    setUnit(unit);
     await loadSprites();
     if (SPR.loft && SPR.loft.bg_day) useArtLayout();
     resize();

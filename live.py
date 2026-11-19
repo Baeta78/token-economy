@@ -23,6 +23,7 @@ from collections import deque
 from pathlib import Path
 
 import collector
+import prices
 import savings
 
 ACTIVE_S = 20 * 60       # a session counts as present while its log changed this recently
@@ -108,13 +109,40 @@ def _push(ev: dict) -> None:
         s["last"] = max(s["last"], ev["ts"])
         if ev["kind"] == "tokens":
             s["tokens"] += ev.get("total", 0)
+            usd = _cost(s["model"], ev)
+            if usd is not None:
+                ev["usd"] = usd
+                s["usd"] += usd
+        elif ev["kind"] == "saved":
+            s["saved"] += ev.get("saved", 0)
+            pin = _input_price(s["model"])
+            if pin is not None:
+                ev["usd"] = ev.get("saved", 0) * pin / 1_000_000
+                s["saved_usd"] += ev["usd"]
+
+
+# what the tokens cost, at the price of the session's model (None when the model has no price)
+def _cost(model: str, ev: dict) -> float | None:
+    try:
+        return collector.cost_usd(model, ev, None)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _input_price(model: str) -> float | None:
+    # a saved token is one the model did not have to read: valued at its input price
+    try:
+        p = prices.price(model)[0]
+        return p.get("input") if p else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _session(sid: str, agent: str, cwd: str, ts: float, model: str = "") -> None:
     s = _sessions.get(sid)
     if s is None:
         s = _sessions[sid] = {"id": sid, "agent": agent, "cwd": cwd, "project": "", "model": model,
-                              "start": ts, "last": ts, "tokens": 0}
+                              "start": ts, "last": ts, "tokens": 0, "usd": 0.0, "saved": 0, "saved_usd": 0.0}
     if cwd and not s["cwd"]:
         s["cwd"] = cwd
     if s["cwd"] and not s["project"]:
@@ -260,8 +288,9 @@ def _rtk(now: float) -> None:
         _rtk_after = now - 120
     try:
         c = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=1)
-        rows = c.execute("select timestamp, original_cmd, saved_tokens, project_path from commands "
-                         "order by id desc limit 50").fetchall()
+        # as raw bytes: RTK may write the folder in the Windows code page instead of UTF-8
+        rows = c.execute("select timestamp, cast(original_cmd as blob), saved_tokens, cast(project_path as blob) "
+                         "from commands order by id desc limit 50").fetchall()
         c.close()
     except Exception:  # noqa: BLE001
         return
@@ -271,7 +300,8 @@ def _rtk(now: float) -> None:
         if ts is None or ts <= _rtk_after:
             continue
         newest = max(newest, ts)
-        sid = _session_for_folder(proj or "", ts)
+        cmd, proj = _text(cmd), _text(proj)
+        sid = _session_for_folder(proj, ts)
         if sid:
             _push({"ts": ts, "session": sid, "agent": _sessions[sid]["agent"], "sub": False, "kind": "saved",
                    "saving": "rtk", "saving_name": "RTK", "category": "command_output",
@@ -279,14 +309,45 @@ def _rtk(now: float) -> None:
     _rtk_after = newest
 
 
+def _text(raw) -> str:
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("cp1252", errors="replace")
+
+
+def _folder_key(folder: str) -> str:
+    f = folder or ""
+    # RTK keeps Windows' long-path prefix (\\?\D:\... or \\?\UNC\server\...)
+    if f.startswith("\\\\?\\UNC\\"):
+        f = "\\\\" + f[8:]
+    elif f.startswith("\\\\?\\"):
+        f = f[4:]
+    return os.path.normcase(os.path.normpath(f)) if f else ""
+
+
 def _session_for_folder(folder: str, ts: float) -> str | None:
-    key = os.path.normcase(os.path.normpath(folder)) if folder else ""
-    best = None
+    """The session that ran a command in this folder: same folder first, else one working in a
+    parent or child folder of it. The closest in time wins."""
+    key = _folder_key(folder)
+    if not key:
+        return None
+    exact, near = None, None
     for s in _sessions.values():
-        if key and os.path.normcase(os.path.normpath(s["cwd"] or "")) != key:
+        cwd = _folder_key(s["cwd"])
+        if not cwd:
             continue
-        if best is None or abs(s["last"] - ts) < abs(best["last"] - ts):
-            best = s
+        closer = lambda b: b is None or abs(s["last"] - ts) < abs(b["last"] - ts)  # noqa: E731
+        if cwd == key:
+            if closer(exact):
+                exact = s
+        elif (key.startswith(cwd + os.sep) or cwd.startswith(key + os.sep)) and closer(near):
+            near = s
+    best = exact or near
     return best["id"] if best else None
 
 
