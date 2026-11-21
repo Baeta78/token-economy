@@ -17,11 +17,6 @@ html, body { margin: 0; height: 100%; background: #1d1a24; color: var(--ink);
 .pill .k { font-size: 12px; color: #6b5e55; }
 .pill b { font-size: 16px; font-variant-numeric: tabular-nums; }
 .pill.save b { color: #1f8a5b; }
-.pill.unit { pointer-events: auto; padding: 3px; gap: 2px; align-items: center; }
-.pill.unit button { border: 0; background: none; font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1; color: #6b5e55;
-  padding: 6px 10px; border-radius: 999px; cursor: pointer; }
-.pill.unit button.on { background: #2b2420; color: #fff8f0; }
-.pill.unit button:focus-visible { outline: 2px solid #3f9a96; outline-offset: 1px; }
 .mode { color: #fff8; font-size: 12px; margin-left: 6px; }
 
 #feed { position: absolute; right: 16px; bottom: 16px; width: min(360px, 40vw); max-height: 42%; overflow: hidden;

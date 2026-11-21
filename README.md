@@ -209,7 +209,7 @@ Yes, both are supported: `sh start.sh` for the dashboard, `sh start.sh --tray` f
 
 - `tray.py`: the tray / menu bar app; starts the server and the data collection.
 - `start.bat`, `Token Economy.vbs` (Windows) and `start.sh` (macOS/Linux): launchers.
-- `server.py`: local server on `127.0.0.1`, collects every minute and serves the page. Only the dashboard page can change settings (requests need a header other websites can't send).
+- `server.py`: local server on `127.0.0.1`, checks every minute (reading only what is new in each log) and serves the page. Only the dashboard page can change settings (requests need a header other websites can't send).
 - `collector.py`: reads every source and builds the numbers. `python collector.py` runs it alone.
 - `limits.py`: Claude and Codex plan limits.
 - `signals.py`, `savings.py`, `savings_tools.json`: token-saving tool detection and savings readers.

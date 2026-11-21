@@ -209,7 +209,7 @@ Sí, los dos tienen soporte: `sh start.sh` para el panel y `sh start.sh --tray` 
 
 - `tray.py`: la app de bandeja / barra de menús; inicia el servidor y la recolección.
 - `start.bat`, `Token Economy.vbs` (Windows) y `start.sh` (macOS/Linux): lanzadores.
-- `server.py`: servidor local en `127.0.0.1`, recolecta cada minuto y sirve la página. Solo la página del panel puede cambiar la configuración (las solicitudes exigen un encabezado que otros sitios no pueden enviar).
+- `server.py`: servidor local en `127.0.0.1`, revisa cada minuto (leyendo solo lo nuevo de cada registro) y sirve la página. Solo la página del panel puede cambiar la configuración (las solicitudes exigen un encabezado que otros sitios no pueden enviar).
 - `collector.py`: lee las fuentes y arma los números. `python collector.py` corre solo la recolección.
 - `limits.py`: límites de los planes de Claude y Codex.
 - `signals.py`, `savings.py`, `savings_tools.json`: detección de herramientas de ahorro y lectura de su ahorro.

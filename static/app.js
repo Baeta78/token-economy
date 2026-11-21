@@ -1560,8 +1560,30 @@ function renderAll() {
     try { fn(F); } catch (e) { console.error(fn.name, e); }
   }
   loadScore();
+  sendOfficeTotals(F);
   document.getElementById("updated").textContent = t("header.data", { when: timeAgo(S.data.generated_at) });
 }
+
+// the live office shows the same totals as the top bar: chosen period, agent filter and tokens | US$
+function sendOfficeTotals(F) {
+  const of = document.getElementById("office-frame");
+  if (!of || !of.src || !of.contentWindow) return;
+  F = F || filtered();
+  const sav = savingsRows(F), usage = F.usage;
+  // calls to the saving tools in the period (the office's machines): RTK commands, Headroom requests and
+  // the events of the other measured tools. Graphify keeps no time of its queries, so it can't be counted here.
+  const calls = (hasTool("rtk") ? F.rtk.reduce((s, r) => s + (r.cmds || 0), 0) : 0)
+    + (hasTool("headroom") ? F.hr.reduce((s, r) => s + (r.reqs || 0), 0) : 0)
+    + F.sav.reduce((s, r) => s + (r.events || 0), 0);
+  of.contentWindow.postMessage({
+    type: "te-totals", unit: S.unit, lang: LANG, period: t("period." + S.period),
+    tokens: usage.reduce((s, r) => s + newTokens(r), 0), usd: usage.reduce((s, r) => s + (r.usd || 0), 0),
+    saved: sav.reduce((s, r) => s + r.saved, 0), saved_usd: sav.reduce((s, r) => s + r.est, 0), tools: Math.round(calls),
+  }, location.origin);
+}
+window.addEventListener("message", (ev) => {
+  if (ev.origin === location.origin && ev.data && ev.data.type === "te-office-ready" && S.data) sendOfficeTotals();
+});
 
 async function load() {
   try {

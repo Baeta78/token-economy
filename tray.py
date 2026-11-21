@@ -510,6 +510,10 @@ def main():
 
         updater.start_auto(app.restart)
     app.run()
+    if own_server:  # closed from the menu: waits for a collection in progress and saves the index
+        import server
+
+        server.stop(30)
 
 
 if __name__ == "__main__":

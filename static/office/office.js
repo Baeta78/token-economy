@@ -13,17 +13,17 @@
   // text
   // ---------------------------------------------------------------------------
   const TEXT = {
-    pt: { cost: "gasto", unitHint: "Mostrar em tokens ou em dólares", agents: "agentes", tokens: "tokens", saved: "economizados", tools: "ferramentas", activity: "Atividade",
+    pt: { cost: "gasto", agents: "agentes", tokens: "tokens", saved: "economizados", tools: "ferramentas", activity: "Atividade",
       emptyTitle: "Ninguém trabalhando agora", emptySub: "Os agentes aparecem aqui quando uma sessão do Claude Code ou do Codex está ativa.",
       demo: "simulação", offline: "sem conexão com o painel", newTask: "nova tarefa", done: "terminou", thinking: "pensando…",
       waiting: "esperando", saving: "economizou", subagent: "chamou um ajudante",
       cat: { command_output: "Compactador", code_index: "Mapa de código", proxy: "Filtro", memory: "Memória", response_style: "Texto curto", mcp: "MCP" } },
-    en: { cost: "spent", unitHint: "Show tokens or dollars", agents: "agents", tokens: "tokens", saved: "saved", tools: "tools", activity: "Activity",
+    en: { cost: "spent", agents: "agents", tokens: "tokens", saved: "saved", tools: "tools", activity: "Activity",
       emptyTitle: "Nobody is working right now", emptySub: "Agents show up here while a Claude Code or Codex session is active.",
       demo: "simulation", offline: "can't reach the panel", newTask: "new task", done: "done", thinking: "thinking…",
       waiting: "waiting", saving: "saved", subagent: "called a helper",
       cat: { command_output: "Compactor", code_index: "Code map", proxy: "Filter", memory: "Memory", response_style: "Short replies", mcp: "MCP" } },
-    es: { cost: "gastado", unitHint: "Mostrar en tokens o en dólares", agents: "agentes", tokens: "tokens", saved: "ahorrados", tools: "herramientas", activity: "Actividad",
+    es: { cost: "gastado", agents: "agentes", tokens: "tokens", saved: "ahorrados", tools: "herramientas", activity: "Actividad",
       emptyTitle: "Nadie está trabajando ahora", emptySub: "Los agentes aparecen aquí mientras una sesión de Claude Code o Codex está activa.",
       demo: "simulación", offline: "sin conexión con el panel", newTask: "nueva tarea", done: "terminó", thinking: "pensando…",
       waiting: "esperando", saving: "ahorró", subagent: "llamó a un ayudante",
@@ -728,20 +728,22 @@
   // feed + HUD
   // ---------------------------------------------------------------------------
   let tokensTotal = 0, savedTotal = 0, toolsUsed = 0, tokensUsd = 0, savedUsd = 0;
-  // the counters show tokens or dollars (at the price of each session's model); the choice is remembered
-  let unit = "tokens";
-  try { if (localStorage.getItem("office-unit") === "usd") unit = "usd"; } catch { /* storage blocked */ }
+  // inside the panel, the counters follow the panel's top bar: its period (today, 7 days...) and its
+  // tokens | US$ choice. Opened alone, they show the open sessions in tokens.
+  let unit = "tokens", panel = null;
+  window.addEventListener("message", (ev) => {
+    const d = ev.data;
+    if (ev.origin !== location.origin || !d || d.type !== "te-totals") return;
+    panel = d; unit = d.unit === "usd" ? "usd" : "tokens";
+    const lang = String(d.lang || "").slice(0, 2);
+    if (TEXT[lang] && T !== TEXT[lang]) { T = TEXT[lang]; applyText(); }
+    hud();
+  });
   function money(n) {
     const d = n === 0 || n >= 10 ? 2 : n >= 0.1 ? 3 : 4;
     return "$" + n.toLocaleString("en-US", { minimumFractionDigits: Math.min(d, 2), maximumFractionDigits: d });
   }
   const amount = (tokens, usd) => (unit === "usd" && usd != null ? money(usd) : fmt(tokens));
-  function setUnit(u) {
-    unit = u;
-    try { localStorage.setItem("office-unit", u); } catch { /* storage blocked */ }
-    document.querySelectorAll("#h-unit [data-u]").forEach((el) => el.classList.toggle("on", el.dataset.u === u));
-    hud();
-  }
   function log(a, text, saving = false) {
     const li = document.createElement("li");
     if (saving) li.className = "saving";
@@ -756,10 +758,11 @@
   }
   function hud() {
     $("h-agents").textContent = [...agents.values()].filter((a) => !a.leaving).length;
-    $("h-tokens-k").textContent = unit === "usd" ? T.cost : T.tokens;
-    $("h-tokens").textContent = amount(tokensTotal, tokensUsd);
-    $("h-saved").textContent = amount(savedTotal, savedUsd);
-    $("h-tools").textContent = toolsUsed;
+    const p = panel || { tokens: tokensTotal, usd: tokensUsd, saved: savedTotal, saved_usd: savedUsd };
+    $("h-tokens-k").textContent = (unit === "usd" ? T.cost : T.tokens) + (panel && panel.period ? " · " + panel.period : "");
+    $("h-tokens").textContent = amount(p.tokens, p.usd);
+    $("h-saved").textContent = amount(p.saved, p.saved_usd);
+    $("h-tools").textContent = fmt(panel && panel.tools != null ? panel.tools : toolsUsed);
     $("empty").hidden = agents.size > 0 || !started;
   }
 
@@ -983,6 +986,9 @@
   // Napping in the chair: the legs stay hidden behind the desk like when typing, but the head and
   // arms rest on the desk top, so that part is drawn again over the desk (over its lamp or plant).
   const NAP_CUT = -55;   // the desk top, relative to the seat
+  // each nap drawing sits a little differently; this lowers it (scene px) so the knees end at the same
+  // height as Nina's, under the desk top, and the arms rest on the desk
+  const NAP_DROP = { maya: 22, theo: 11, kai: 14, lia: 20, bruno: 18 };
   const deskNap = (a) => ART && a.place === "nap" && !a.path && a.pose === "sleep" && napsAtDesk(a);
   function drawNapTop(a, t) {
     ctx.save();
@@ -1013,6 +1019,7 @@
       if (pose === "type" && a.place !== "desk") pose = "idle";
     }
     if (!(SPR[a.char] && SPR[a.char][pose])) pose = SPR[a.char] && SPR[a.char].idle ? "idle" : pose;
+    if (pose === "sleep" && deskNap(a)) y += NAP_DROP[a.char] || 0;
     // shadow
     ctx.fillStyle = "rgba(40,20,10,.22)";
     ctx.beginPath(); ctx.ellipse(a.x, a.y + 1, 38, 9, 0, 0, Math.PI * 2); ctx.fill();
@@ -1223,12 +1230,10 @@
     try {
       const cfg = await (await fetch("/api/config")).json();
       const lang = (cfg.language || "pt").slice(0, 2);
-      T = TEXT[lang] || TEXT.pt;
+      if (!panel) T = TEXT[lang] || TEXT.pt; // inside the panel, the panel's language already won
     } catch { /* keep Portuguese */ }
     applyText();
-    $("h-unit").title = T.unitHint;
-    $("h-unit").addEventListener("click", (ev) => { const u = ev.target.dataset && ev.target.dataset.u; if (u) setUnit(u); });
-    setUnit(unit);
+    try { parent !== window && parent.postMessage({ type: "te-office-ready" }, location.origin); } catch { /* not in the panel */ }
     await loadSprites();
     if (SPR.loft && SPR.loft.bg_day) useArtLayout();
     resize();
