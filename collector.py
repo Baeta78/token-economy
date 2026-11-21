@@ -28,6 +28,7 @@ import threading
 import time
 from collections import defaultdict
 
+import incremental
 import savings as savings_mod
 import tool_versions
 import limits as limits_mod
@@ -94,9 +95,19 @@ def parse_ts(value) -> float | None:
         return None
 
 
+_hour_memo: dict[int, str] = {}
+
+
 def hour_key(ts: float) -> str:
     """Local hour in the YYYY-MM-DDTHH format."""
-    return dt.datetime.fromtimestamp(ts).strftime("%Y-%m-%dT%H")
+    # every time zone offset is a multiple of 15 minutes: the whole quarter hour has the same key
+    q = int(ts // 900)
+    h = _hour_memo.get(q)
+    if h is None:
+        if len(_hour_memo) > 200_000:
+            _hour_memo.clear()
+        h = _hour_memo[q] = dt.datetime.fromtimestamp(q * 900).strftime("%Y-%m-%dT%H")
+    return h
 
 
 def norm_cmd(s: str) -> str:
@@ -189,6 +200,11 @@ def cost_usd(model: str, u: dict, prices: dict) -> float | None:
 # ----------------------------------------------------------------------------
 
 _cache_lock = threading.Lock()
+# The index stays in memory between collections: reading and rewriting the whole file
+# every minute was tens of MB of disk per collection. It goes to disk when it changed, at
+# most every SAVE_EVERY seconds, and on flush() (closing or restarting the app).
+SAVE_EVERY = 600
+_mem = {"cache": None, "dirty": False, "saved_at": 0.0}
 
 
 def load_cache() -> dict:
@@ -206,6 +222,34 @@ def save_cache(cache: dict) -> None:
     tmp = CACHE_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(cache, separators=(",", ":")), encoding="utf-8")
     os.replace(tmp, CACHE_FILE)
+
+
+def _index() -> dict:
+    if _mem["cache"] is None:
+        _mem["cache"] = load_cache()
+        _mem["saved_at"] = time.time()
+    return _mem["cache"]
+
+
+def _save_index(force: bool = False) -> None:
+    if _mem["cache"] is None or not _mem["dirty"]:
+        return
+    if force or time.time() - _mem["saved_at"] >= SAVE_EVERY:
+        save_cache(_mem["cache"])
+        _mem["dirty"] = False
+        _mem["saved_at"] = time.time()
+
+
+def _index_mark(cache: dict) -> tuple[int, int]:
+    """Changes whenever a log file was read further or a new one showed up."""
+    files = cache["files"]
+    return len(files), sum(e.get("offset", 0) for e in files.values())
+
+
+def flush() -> None:
+    """Writes the in-memory index to disk if it changed (called when the app closes)."""
+    with _cache_lock:
+        _save_index(force=True)
 
 
 def iter_new_lines(path: str, entry: dict):
@@ -495,27 +539,30 @@ def scan_ollama() -> dict:
     out = {"reqs": [], "models": [], "ok": False, "error": None}
     logdir = PATHS["ollama_logs"]
     seen = set()
+
+    def request(line: str):
+        if "[GIN]" not in line or "POST" not in line:
+            return None
+        m = _GIN.search(line)
+        if not m:
+            return None
+        endpoint = m.group(7)
+        if not any(x in endpoint for x in ("/api/chat", "/api/generate", "/v1/chat", "/v1/messages", "/v1/responses", "/v1/completions", "/api/embed")):
+            return None
+        try:
+            d = dt.datetime.strptime(m.group(1) + " " + m.group(2), "%Y/%m/%d %H:%M:%S")
+        except ValueError:
+            return None
+        return (m.group(1), m.group(2), endpoint, m.group(4)), [d.timestamp(), endpoint, int(m.group(3)), _dur_s(m.group(4), m.group(5))]
+
     for path in sorted(glob.glob(str(logdir / "server*.log"))):
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
-                for line in f:
-                    if "[GIN]" not in line or "POST" not in line:
-                        continue
-                    m = _GIN.search(line)
-                    if not m:
-                        continue
-                    endpoint = m.group(7)
-                    if not any(x in endpoint for x in ("/api/chat", "/api/generate", "/v1/chat", "/v1/messages", "/v1/responses", "/v1/completions", "/api/embed")):
-                        continue
-                    key = (m.group(1), m.group(2), endpoint, m.group(4))
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    try:
-                        d = dt.datetime.strptime(m.group(1) + " " + m.group(2), "%Y/%m/%d %H:%M:%S")
-                    except ValueError:
-                        continue
-                    out["reqs"].append([d.timestamp(), endpoint, int(m.group(3)), _dur_s(m.group(4), m.group(5))])
+            # only the lines added since the last collection are read
+            for key, req in incremental.lines("ollama:" + path, path, request):
+                if key in seen:  # rotated logs repeat lines
+                    continue
+                seen.add(key)
+                out["reqs"].append(req)
             out["ok"] = True
         except Exception as e:  # noqa: BLE001
             out["error"] = str(e)
@@ -549,19 +596,21 @@ def scan_rtk() -> dict:
     if not db.exists():
         out["error"] = "history.db not found"
         return out
+    def command(row):
+        ts = parse_ts(row[0])
+        return None if ts is None else [ts, row[1] or "", row[2] or "", row[3] or 0, row[4] or 0, row[5] or 0, row[6] or 0, row[7] or ""]
+
+    # only the rows added since the last collection are read (the history only grows)
     try:
-        c = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
-        for row in c.execute(
-            "select timestamp, original_cmd, rtk_cmd, input_tokens, output_tokens, saved_tokens, exec_time_ms, project_path from commands"
-        ):
-            ts = parse_ts(row[0])
-            if ts is None:
-                continue
-            out["rows"].append([ts, row[1] or "", row[2] or "", row[3] or 0, row[4] or 0, row[5] or 0, row[6] or 0, row[7] or ""])
-        for row in c.execute("select timestamp, raw_command, error_message, fallback_succeeded from parse_failures"):
-            out["failures"].append([parse_ts(row[0]), row[1] or "", row[2] or "", row[3]])
-        for row in c.execute("select timestamp, session_id, tool_use_id, raw_cmd, decision from hook_decisions"):
-            out["hooks"].append([parse_ts(row[0]), row[1], row[2] or "", norm_cmd(row[3] or ""), row[4] or ""])
+        out["rows"] = incremental.rows("rtk:commands", db, "commands",
+                                       "timestamp, original_cmd, rtk_cmd, input_tokens, output_tokens, saved_tokens, exec_time_ms, project_path",
+                                       conv=command)
+        out["failures"] = incremental.rows("rtk:failures", db, "parse_failures",
+                                           "timestamp, raw_command, error_message, fallback_succeeded",
+                                           conv=lambda r: [parse_ts(r[0]), r[1] or "", r[2] or "", r[3]])
+        out["hooks"] = incremental.rows("rtk:hooks", db, "hook_decisions",
+                                        "timestamp, session_id, tool_use_id, raw_cmd, decision",
+                                        conv=lambda r: [parse_ts(r[0]), r[1], r[2] or "", norm_cmd(r[3] or ""), r[4] or ""])
         out["ok"] = True
     except Exception as e:  # noqa: BLE001
         out["error"] = str(e)
@@ -581,6 +630,8 @@ _STOP = {"users", "dev", "null", "head", "tail", "rtk", "cd", "echo", "true"}
 
 
 def _words(s: str) -> list[str]:
+    # not cached between collections on purpose: it cut ~2 s of CPU per collection but kept
+    # ~150 MB of memory with the words of every command in the history
     seen, out = set(), []
     for w in _WORD.findall((s or "").lower()):
         if w not in seen and w not in _STOP:
@@ -613,6 +664,9 @@ def cmd_head(c: str) -> str:
     return ""
 
 
+_attribution = {"cut": 0.0, "check": None, "map": {}}  # see the RTK part of collect()
+
+
 class CmdIndex:
     """Index of the commands run by each agent, sorted by time.
 
@@ -633,6 +687,12 @@ class CmdIndex:
     def active(self, ts: float, agent: str):
         self.activity[agent].append(ts)
 
+    def check(self, cut: float) -> tuple:
+        """How many commands and activity marks are older than `cut`: if it did not change,
+        everything find() saw for a command older than `cut` is still the same."""
+        return (bisect.bisect_left(self.times, cut),
+                tuple(sorted((ag, bisect.bisect_left(v, cut)) for ag, v in self.activity.items())))
+
     def build(self):
         self.items.sort(key=lambda x: x[0])
         self.times = [x[0] for x in self.items]
@@ -645,9 +705,10 @@ class CmdIndex:
             lo = bisect.bisect_left(self.times, ts - before)
             hi = bisect.bisect_right(self.times, ts + after)
             best, best_score, best_i = None, 0.0, None
+            n = len(target)
             for i in range(lo, hi):
                 t, ag, ws, _s, _h = self.items[i]
-                hit = sum(1 for w in target if w in ws) / len(target)
+                hit = len(ws.intersection(target)) / n  # target has no repeated words
                 if hit < 0.6:
                     continue
                 # ties are broken by closeness in time
@@ -675,16 +736,16 @@ def scan_headroom() -> dict:
     out = {"events": [], "lifetime": {}, "subscription": None, "ok": False, "error": None}
     root = PATHS["headroom"]
     ev = root / "savings_events.jsonl"
-    if ev.exists():
-        for line in ev.read_text(encoding="utf-8", errors="replace").splitlines():
-            try:
-                d = json.loads(line)
-            except Exception:
-                continue
-            ts = parse_ts(d.get("ts"))
-            if ts is None:
-                continue
-            out["events"].append({
+
+    def event(line: str):
+        try:
+            d = json.loads(line)
+        except Exception:
+            return None
+        ts = parse_ts(d.get("ts"))
+        if ts is None:
+            return None
+        return {
                 "ts": ts,
                 "before": int(d.get("before") or 0),
                 "after": int(d.get("after") or 0),
@@ -694,7 +755,10 @@ def scan_headroom() -> dict:
                 "client": d.get("client") or "?",
                 "provider": d.get("provider") or "?",
                 "cache_read": int((d.get("cache") or {}).get("cr") or 0),
-            })
+            }
+
+    if ev.exists():
+        out["events"] = incremental.lines("headroom:events", str(ev), event)  # only the new lines
         out["ok"] = True
     ps = root / "proxy_savings.json"
     if ps.exists():
@@ -744,22 +808,43 @@ def _headroom_client(c: str) -> str:
     return "unknown"
 
 
-def collect(progress=lambda msg: None) -> dict:
+REUSE_FOR = 300  # with nothing new, the previous snapshot is served for at most this long
+_last = {"snap": None, "mark": None, "at": 0.0}
+
+
+def _inputs_mark(cache: dict, oc: dict, ol: dict, rtk: dict, hr: dict) -> tuple:
+    """Changes when any source read by the collection got something new."""
+    return (_index_mark(cache), len(oc.get("msgs") or ()), len(oc.get("cmds") or ()),
+            len(ol["reqs"]), tuple(ol.get("loaded") or ()), len(ol["models"]),
+            len(rtk["rows"]), len(rtk["hooks"]), len(rtk["failures"]),
+            len(hr["events"]), len(hr.get("history") or ()),
+            json.dumps([hr.get("subscription"), hr.get("lifetime"), prices_mod.info()], sort_keys=True, default=str))
+
+
+def collect(progress=lambda msg: None, force: bool = False) -> dict:
+    """Builds the snapshot. Without `force`, when no source got anything new since the last
+    one (less than REUSE_FOR ago), returns that same snapshot object without rebuilding it."""
     t0 = time.time()
     prices = load_prices()
     prices_mod.refresh_in_background()  # downloads the tables if they are older than 7 days
     with _cache_lock:
-        cache = load_cache()
+        cache = _index()
+        before = _index_mark(cache)
         progress("Reading Claude Code…")
         scan_claude(cache, progress)
         progress("Reading Codex…")
         scan_codex(cache, progress)
-        save_cache(cache)
+        if _index_mark(cache) != before:
+            _mem["dirty"] = True
+        _save_index()
     progress("Reading OpenCode, Ollama, RTK and Headroom…")
     oc = scan_opencode()
     ol = scan_ollama()
     rtk = scan_rtk()
     hr = scan_headroom()
+    mark = _inputs_mark(cache, oc, ol, rtk, hr)
+    if not force and _last["snap"] is not None and _last["mark"] == mark and time.time() - _last["at"] < REUSE_FOR:
+        return _last["snap"]
 
     # --- usage per hour: (hour, agent, model) -> metrics
     usage_hour: dict[tuple, dict] = defaultdict(lambda: defaultdict(float))
@@ -971,9 +1056,23 @@ def collect(progress=lambda msg: None) -> dict:
             return None
         return min(msgs * (end - ts) / (end - start), life), cr_s, cw_s
 
+    # Matching each RTK row to the agent's command was most of the collection's CPU, redone
+    # every minute for the whole history. A row older than an hour always gets the same answer
+    # while nothing older than that changes in the index: those answers are kept.
+    memo = _attribution
+    if memo["check"] is None or cmd_index.check(memo["cut"]) != memo["check"]:
+        memo["map"] = {}
+    memo["cut"] = time.time() - 3600
+    memo["check"] = cmd_index.check(memo["cut"])
+    keep_before = memo["cut"] - 60  # find() looks at most 60 s after the row
     covered: set[int] = set()
     for ts, orig, rtk_c, inp, out_, saved, ms, proj in rtk["rows"]:
-        ag, method, idx = cmd_index.find(ts, orig)
+        hit = memo["map"].get((ts, orig)) if ts < keep_before else None
+        if hit is None:
+            hit = cmd_index.find(ts, orig)
+            if ts < keep_before:
+                memo["map"][(ts, orig)] = hit
+        ag, method, idx = hit
         # coverage: how many distinct agent commands went through RTK (a compound command
         # becomes several RTK rows and must not count more than once)
         if idx is not None and idx not in covered:
@@ -1232,6 +1331,7 @@ def collect(progress=lambda msg: None) -> dict:
     }
     snapshot["limits"]["windows"] = limits_mod.windows(snapshot["limits"]["codex"], claude_api, codex_api)
     snapshot["limits"]["series"] = limits_mod.series(snapshot["limits"]["codex"])
+    _last.update(snap=snapshot, mark=mark, at=time.time())
     return snapshot
 
 

@@ -26,6 +26,7 @@ import sys
 import time
 from pathlib import Path
 
+import incremental
 import runtime
 import signals
 
@@ -138,20 +139,25 @@ def read_context_mode(since: float) -> list[dict]:
     root = Path(os.environ.get("CONTEXT_MODE_DATA_DIR") or HOME / ".context-mode") / "projects"
     agents = {"claude-code": "claude", "codex": "codex", "opencode": "opencode", "gemini": "gemini",
               "qwen": "qwen", "copilot-cli": "copilot", "vscode": "copilot", "kiro": "kiro", "pi": "pi"}
+
+    def event(r):
+        ts, ag, wt, sb, rb = r
+        saved = max(0, (sb or 0) - (rb or 0)) / 4
+        if not saved or ts is None:
+            return None
+        return {"ts": ts / 1000, "agent": agents.get(ag or "", "unknown"), "saved": saved, "folder": wt or ""}
+
     out = []
     for db in glob.glob(str(root / "*" / "context.db")):
         try:
-            with _sqlite_ro(Path(db)) as c:
-                for ts, ag, wt, sb, rb in c.execute(
-                        "select created_at, agent, worktree, sandbox_bytes, returned_bytes from events "
-                        "where tool is not null and kind <> 'cost' and tool <> 'ctx_stats' and created_at >= ?",
-                        (int(since * 1000),)):
-                    saved = max(0, (sb or 0) - (rb or 0)) / 4
-                    if saved:
-                        out.append({"ts": ts / 1000, "agent": agents.get(ag or "", "unknown"),
-                                    "saved": saved, "folder": wt or ""})
+            # the events table has no index on created_at: filtering by date in SQL read the
+            # whole database every minute. Reads only the rows added since the last time.
+            evs = incremental.rows("context_mode:" + db, db, "events",
+                                   "created_at, agent, worktree, sandbox_bytes, returned_bytes",
+                                   "tool is not null and kind <> 'cost' and tool <> 'ctx_stats'", event)
         except sqlite3.Error:
             continue
+        out += [e for e in evs if e["ts"] >= since]
     return out
 
 

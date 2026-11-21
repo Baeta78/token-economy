@@ -17,6 +17,7 @@ import json
 import os
 import re
 import shutil
+import time
 from pathlib import Path
 
 import runtime
@@ -166,11 +167,18 @@ def mcp_by_project(folders) -> dict[str, list[tuple[str, str]]]:
     return out
 
 
+_which: dict[str, tuple[float, str | None]] = {}
+WHICH_TTL = 600  # each lookup checks every PATH folder: thousands of disk hits per collection
+
+
 def find_exe(names: list[str]) -> str | None:
+    now = time.time()
     for n in names:
-        path = shutil.which(n)
-        if path:
-            return path
+        hit = _which.get(n)
+        if hit is None or now - hit[0] > WHICH_TTL:
+            hit = _which[n] = (now, shutil.which(n))
+        if hit[1]:
+            return hit[1]
     return None
 
 

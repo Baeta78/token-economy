@@ -100,7 +100,7 @@ request = threading.Event()
 listeners = []  # functions called on every new collection (the tray app uses it)
 
 
-def collect():
+def collect(force: bool = False):
     with lock:
         if state["collecting"]:
             return
@@ -109,7 +109,10 @@ def collect():
         def progress(msg):
             state["status"] = msg
 
-        snap = collector.collect(progress)
+        snap = collector.collect(progress, force)
+        if snap is state["data"]:  # nothing new: the same snapshot is still being served
+            state["status"] = "ok"
+            return
         state["snapshot"] = json.dumps(snap, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         state["data"] = snap
         state["status"] = "ok"
@@ -143,9 +146,11 @@ stopping = threading.Event()
 
 
 def loop(interval: int):
+    force = True
     while not stopping.is_set():
-        collect()
-        request.wait(interval)
+        collect(force)
+        # woken by a request (refresh button, new price table): rebuilds even with no new data
+        force = request.wait(interval)
         request.clear()
 
 
@@ -157,6 +162,10 @@ def stop(timeout: float = 90) -> None:
     end = time.time() + timeout
     while state["collecting"] and time.time() < end:
         time.sleep(0.2)
+    try:
+        collector.flush()  # the index is kept in memory and saved every few minutes
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -345,6 +354,8 @@ def main():
     except KeyboardInterrupt:
         pass
     srv.server_close()
+    if not restart.is_set():
+        stop(30)  # Ctrl+C: saves the index kept in memory
     if restart.is_set():
         stop()
         print("Token Economy was updated; restarting...", flush=True)
