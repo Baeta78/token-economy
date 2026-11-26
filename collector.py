@@ -1257,14 +1257,19 @@ def collect(progress=lambda msg: None, force: bool = False) -> dict:
     # --- Claude subscription (from Headroom, when it is running)
     subscription = hr.get("subscription")
     # --- Official Claude limits (Anthropic usage endpoint) and unified windows
-    try:
-        claude_api = limits_mod.claude()
-    except Exception as e:  # noqa: BLE001
-        claude_api = {"ok": False, "error": type(e).__name__}
-    try:
-        codex_api = limits_mod.codex()
-    except Exception as e:  # noqa: BLE001
-        codex_api = {"ok": False, "error": type(e).__name__}
+    if runtime.AGENT:
+        # an agent exports only totals: the plan limits belong to the account, and the panel
+        # that reads this machine already reads them itself
+        claude_api = codex_api = {"ok": False, "error": "agent"}
+    else:
+        try:
+            claude_api = limits_mod.claude()
+        except Exception as e:  # noqa: BLE001
+            claude_api = {"ok": False, "error": type(e).__name__}
+        try:
+            codex_api = limits_mod.codex()
+        except Exception as e:  # noqa: BLE001
+            codex_api = {"ok": False, "error": type(e).__name__}
 
     def rows(d: dict, cols: list[str]):
         out = []

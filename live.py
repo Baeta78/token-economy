@@ -428,5 +428,33 @@ def feed(after: int = 0) -> dict:
     now = time.time()
     with _lock:
         evs = [e for e in _events if e["seq"] > after and now - e["ts"] < ACTIVE_S]
-        sessions = sorted(_sessions.values(), key=lambda s: s["start"])
-        return {"seq": _seq, "now": now, "sessions": [dict(s) for s in sessions], "events": evs}
+        sessions = [dict(s) for s in sorted(_sessions.values(), key=lambda s: s["start"])]
+        for r in _remote.values():
+            sessions += [dict(s) for s in r]
+        return {"seq": _seq, "now": now, "sessions": sessions, "events": evs}
+
+
+# ----------------------------------------------------------------------------
+# other machines (see remote.py): their sessions and events, numbered in this feed
+# ----------------------------------------------------------------------------
+
+_remote: dict[str, list[dict]] = {}   # machine id -> its open sessions
+
+
+def inject_remote(mid: str, name: str, sessions: list[dict], events: list[dict]) -> None:
+    """Adds what a machine's agent sent. Its session ids get the machine id in front (two
+    machines never share a session), and the project shows which machine it is on."""
+    with _lock:
+        for e in events:
+            if not isinstance(e, dict) or "ts" not in e or "kind" not in e:
+                continue
+            ev = dict(e, session=f"{mid}:{e.get('session', '')}", machine=name)
+            ev.pop("seq", None)
+            _push(ev)   # the cost came computed by the agent
+        _remote[mid] = [dict(s, id=f"{mid}:{s.get('id', '')}", machine=name,
+                             project=f"{name} · {s.get('project') or '?'}", cwd="") for s in sessions if isinstance(s, dict)]
+
+
+def drop_remote(mid: str) -> None:
+    with _lock:
+        _remote.pop(mid, None)

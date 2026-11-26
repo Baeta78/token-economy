@@ -230,7 +230,7 @@ td.truncate { max-width: 340px; overflow: hidden; text-overflow: ellipsis; text-
 }
 
 /* language picker */
-.language-picker select {
+.language-picker select, .machine-picker {
   border: 1px solid var(--border); background: var(--surface); color: var(--text);
   padding: 5px 8px; border-radius: 8px; font: inherit; font-size: 13px; cursor: pointer;
 }
@@ -293,6 +293,10 @@ td.truncate { max-width: 340px; overflow: hidden; text-overflow: ellipsis; text-
 .sub-row label { display: grid; gap: 4px; font-size: 12px; color: var(--text-2); }
 .sub-row input, .sub-row select { border: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 6px 9px; border-radius: 8px; font: inherit; font-size: 13px; }
 .sub-row input[type=number] { width: 120px; }
+.machine-row { padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.machine-row input[data-k=url] { width: 260px; }
+.machine-row input[type=checkbox] { width: 18px; height: 18px; margin: 6px 0; }
+.machine-status { flex-basis: 100%; font-size: 12px; }
 #summary-value .bar-row { grid-template-columns: 1fr auto; row-gap: 4px; }
 #summary-value .bar-track { grid-column: 1 / -1; grid-row: 2; }
 .check { display: flex; gap: 8px; align-items: center; font-size: 13.5px; cursor: pointer; }

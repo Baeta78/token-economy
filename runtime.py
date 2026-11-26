@@ -18,6 +18,8 @@ from pathlib import Path
 BASE = Path(__file__).resolve().parent
 CACHE = Path(os.environ.get("TOKEN_ECONOMY_CACHE") or BASE / ".cache")
 DEMO = os.environ.get("TOKEN_ECONOMY_DEMO") == "1"
+# `python server.py --agent`: collects for another machine's panel (see remote.py); set by server.py
+AGENT = False
 
 WIN = sys.platform == "win32"
 MAC = sys.platform == "darwin"

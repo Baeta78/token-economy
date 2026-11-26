@@ -33,6 +33,7 @@ import ai  # noqa: E402
 import cache_migration  # noqa: E402
 import collector  # noqa: E402
 import prices  # noqa: E402
+import remote  # noqa: E402
 import runtime  # noqa: E402
 import score  # noqa: E402
 import updater  # noqa: E402
@@ -79,6 +80,8 @@ def write_config(new: dict) -> dict:
                 continue
             items.append({"name": str(a.get("name") or "")[:60], "agent": str(a.get("agent") or "")[:20], "monthly": round(monthly, 2)})
         cfg["subscriptions"] = items
+    if isinstance(new.get("machines"), list):
+        cfg["machines"] = remote.clean_machines(new["machines"], cfg.get("machines") or [])
     CONFIG.parent.mkdir(exist_ok=True)
     CONFIG.write_text(json.dumps(cfg), encoding="utf-8")
     return cfg
@@ -89,15 +92,37 @@ def public_config() -> dict:
     if isinstance(cfg.get("ai"), dict):
         cfg["ai"] = {k: v for k, v in cfg["ai"].items() if k != "key"}
         cfg["ai"]["has_key"] = bool(read_config()["ai"].get("key"))
+    cfg["machines"] = remote.public(cfg.get("machines") or [])  # the tokens stay in the file too
     if runtime.DEMO:
         cfg["demo"] = True
     return cfg
 
 
-state = {"snapshot": None, "data": None, "status": "Starting…", "error": None, "collecting": False}
+# local: what the collector returned; data: that plus the other machines (what the panel shows)
+state = {"snapshot": None, "data": None, "local": None, "status": "Starting…", "error": None, "collecting": False}
 lock = threading.Lock()
+publish_lock = threading.Lock()
 request = threading.Event()
 listeners = []  # functions called on every new collection (the tray app uses it)
+
+
+def publish(local: dict) -> None:
+    """Serves `local` merged with the other machines' totals."""
+    with publish_lock:
+        snap = local if runtime.AGENT else remote.remote.merge(local)
+        state["snapshot"] = json.dumps(snap, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        state["local"] = local
+        state["data"] = snap
+    for fn in list(listeners):
+        try:
+            fn(snap if not runtime.AGENT else local)
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+
+
+def remote_changed() -> None:
+    if state["local"] is not None:
+        publish(state["local"])
 
 
 def collect(force: bool = False):
@@ -110,18 +135,12 @@ def collect(force: bool = False):
             state["status"] = msg
 
         snap = collector.collect(progress, force)
-        if snap is state["data"]:  # nothing new: the same snapshot is still being served
+        if snap is state["local"]:  # nothing new: the same snapshot is still being served
             state["status"] = "ok"
             return
-        state["snapshot"] = json.dumps(snap, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        state["data"] = snap
+        publish(snap)
         state["status"] = "ok"
         state["error"] = None
-        for fn in list(listeners):
-            try:
-                fn(snap)
-            except Exception:  # noqa: BLE001
-                traceback.print_exc()
     except Exception as e:  # noqa: BLE001
         state["error"] = f"{e}\n{traceback.format_exc()}"
         state["status"] = "error"
@@ -162,6 +181,8 @@ def stop(timeout: float = 90) -> None:
     end = time.time() + timeout
     while state["collecting"] and time.time() < end:
         time.sleep(0.2)
+    remote.remote.stopping.set()
+    remote.remote.save_all()
     try:
         collector.flush()  # the index is kept in memory and saved every few minutes
     except Exception:  # noqa: BLE001
@@ -238,9 +259,12 @@ class Handler(SimpleHTTPRequestHandler):
                 after = int((q.get("after") or ["0"])[0])
             except ValueError:
                 after = 0
+            remote.remote.watching()  # the office is open: machines with live on start streaming
             body = live.feed(after)
             body["limit"] = limit_level()
             return self._json(json.dumps(body, ensure_ascii=False).encode("utf-8"))
+        if self.path.startswith("/api/machines"):
+            return self._json(json.dumps([m.info() for m in remote.remote.machines.values()]).encode("utf-8"))
         if self.path.startswith("/api/status"):
             body = json.dumps({"status": state["status"], "collecting": state["collecting"], "error": state["error"]}, ensure_ascii=False)
             return self._json(body.encode("utf-8"))
@@ -284,11 +308,16 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(json.dumps({"error": str(e)}).encode("utf-8"), 409)
         if self.path.startswith("/api/refresh"):
             request.set()
+            remote.remote.kick()
             return self._json(b'{"ok":true}')
         if self.path.startswith("/api/config"):
             try:
                 n = int(self.headers.get("Content-Length") or 0)
-                write_config(json.loads(self.rfile.read(min(n, 4096)) or b"{}"))
+                new = json.loads(self.rfile.read(min(n, 16384)) or b"{}")
+                cfg = write_config(new)
+                if isinstance(new.get("machines"), list):
+                    remote.remote.configure(cfg.get("machines") or [])
+                    remote_changed()
                 return self._json(json.dumps(public_config()).encode("utf-8"))
             except Exception:  # noqa: BLE001
                 return self._json(b'{"error":"invalid config"}', 400)
@@ -315,10 +344,46 @@ class Server(ThreadingHTTPServer):
         super().server_bind()
 
 
+def start_remote() -> None:
+    if not runtime.DEMO:
+        remote.remote.start(read_config().get("machines") or [], remote_changed)
+
+
+def run_agent(args) -> None:
+    """`--agent`: collects here and serves only the totals to another machine's panel."""
+    runtime.AGENT = True
+    port = args.port or remote.AGENT_PORT
+    exporter = remote.Exporter()
+    listeners.append(exporter.update)
+    token = remote.agent_token()
+    try:
+        srv = remote.agent_server(args.listen, port, exporter, token)
+    except OSError as e:
+        sys.exit(f"Could not listen on {args.listen}:{port} ({e}). Choose another one with --listen / --port")
+    cache_migration.migrate()
+    threading.Thread(target=loop, args=(args.interval,), daemon=True).start()
+    host = args.listen if args.listen not in ("0.0.0.0", "::") else "<this machine's address>"
+    print(f"Token Economy agent on {args.listen}:{port}  (Ctrl+C)")
+    print("In the panel: Settings > Machines > Add, with")
+    print(f"  URL:   http://{host}:{port}")
+    print(f"  Token: {token}")
+    if args.listen in ("127.0.0.1", "localhost", "::1"):
+        print(f"Only this machine can reach it. From the panel's computer: ssh -N -L {port}:127.0.0.1:{port} <server>")
+        print(f"  and use http://127.0.0.1:{port} as the URL. Or start with --listen <Tailscale/VPN IP>.")
+    sys.stdout.flush()
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    srv.server_close()
+    stop(30)
+
+
 def start(port: int = 8765, interval: int = 60) -> ThreadingHTTPServer:
     """Starts the server and the collection in background threads. Used by the tray app."""
     srv = Server(("127.0.0.1", port), Handler)
     cache_migration.migrate()  # only once the port is ours: no other instance is using .cache/
+    start_remote()
     threading.Thread(target=loop, args=(interval,), daemon=True).start()
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv
@@ -330,13 +395,20 @@ def main():
     ap.add_argument("--interval", type=int, default=60, help="seconds between collections")
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--demo", action="store_true", help="fictional data, for screenshots and trying the panel out")
+    ap.add_argument("--agent", action="store_true",
+                    help="collect on this machine (a VPS) for the panel on another one; serves only totals, behind a token")
+    ap.add_argument("--listen", default="127.0.0.1",
+                    help="with --agent: address to listen on (default 127.0.0.1, for an SSH tunnel; e.g. the Tailscale IP)")
     args = ap.parse_args()
+    if args.agent:
+        return run_agent(args)
     port = args.port or (8780 if args.demo else 8765)
     try:
         srv = Server(("127.0.0.1", port), Handler)
     except OSError:
         sys.exit(f"Port {port} is already in use. Choose another one with --port, e.g. --port {port + 1}")
     cache_migration.migrate()  # only once the port is ours: no other instance is using .cache/
+    start_remote()
     threading.Thread(target=loop, args=(args.interval,), daemon=True).start()
     url = f"http://127.0.0.1:{port}"
     print(f"Token Economy{' (demo data)' if args.demo else ''}: {url}  (Ctrl+C)")

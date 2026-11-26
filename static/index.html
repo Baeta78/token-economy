@@ -29,6 +29,7 @@
       <button data-u="usd" data-i18n="unit.usd"></button>
     </div>
     <div class="chips" id="agent-filter"></div>
+    <select id="machine-filter" class="machine-picker" data-i18n-title="machines.pick" hidden></select>
     <button id="btn-refresh" class="btn" data-i18n="btn.refresh" data-i18n-title="btn.refresh.hint"></button>
     <label class="language-picker">
       <span class="sr" data-i18n="language"></span>
@@ -275,6 +276,11 @@
       <div class="card-head"><h2 data-i18n="settings.limits"></h2></div>
       <p class="explain" data-i18n="settings.limits.explain"></p>
       <label class="check"><input type="checkbox" id="set-claude-limits"> <span data-i18n="settings.limits.enable"></span></label>
+    </div>
+    <div class="card wide" style="margin-bottom:16px">
+      <div class="card-head"><h2 data-i18n="machines.title"></h2></div>
+      <p class="explain" data-i18n-html="machines.explain"></p>
+      <div id="machines"></div>
     </div>
     <div class="card wide" style="margin-bottom:16px">
       <div class="card-head"><h2 data-i18n="subs.title"></h2></div>
