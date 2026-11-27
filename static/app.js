@@ -26,6 +26,7 @@ const S = {
   data: null,
   period: readPref("period", "7d"),
   hiddenAgents: new Set(JSON.parse(readPref("hiddenAgents", "[]"))),
+  machine: readPref("machine", "all"),   // all | local | a machine's name (Settings > Machines)
   unit: new URLSearchParams(location.search).get("unit") || readPref("unit", "tokens"),
   charts: {},
   ai: null,
@@ -127,18 +128,20 @@ function inPeriodDay(d) {
   return hourTs(d + "T00") + 86399 >= start;
 }
 const agentOn = (a) => !S.hiddenAgents.has(a);
+// rows from another machine carry its name in "machine"; this machine's rows have none
+const machineOn = (r) => S.machine === "all" || (S.machine === "local" ? !r.machine : r.machine === S.machine);
 
 function filtered() {
   const d = S.data;
   return {
-    usage: d.usage.filter((r) => inPeriodHour(r.hour) && agentOn(r.agent)),
-    rtk: d.rtk.hourly.filter((r) => inPeriodHour(r.hour) && agentOn(r.agent)),
-    hr: d.headroom.hourly.filter((r) => inPeriodHour(r.hour) && agentOn(r.agent)),
-    sav: (d.savings?.hourly || []).filter((r) => inPeriodHour(r.hour) && agentOn(r.agent)),
-    proj: d.project_usage.filter((r) => inPeriodDay(r.day) && agentOn(r.agent)),
-    rtkCmd: d.rtk.commands.filter((r) => inPeriodDay(r.day)),
-    sessions: d.sessions.filter((s) => s.end >= interval()[0] && agentOn(s.agent)),
-    ollama: d.ollama.hourly.filter((r) => inPeriodHour(r.hour)),
+    usage: d.usage.filter((r) => inPeriodHour(r.hour) && agentOn(r.agent) && machineOn(r)),
+    rtk: d.rtk.hourly.filter((r) => inPeriodHour(r.hour) && agentOn(r.agent) && machineOn(r)),
+    hr: d.headroom.hourly.filter((r) => inPeriodHour(r.hour) && agentOn(r.agent) && machineOn(r)),
+    sav: (d.savings?.hourly || []).filter((r) => inPeriodHour(r.hour) && agentOn(r.agent) && machineOn(r)),
+    proj: d.project_usage.filter((r) => inPeriodDay(r.day) && agentOn(r.agent) && machineOn(r)),
+    rtkCmd: d.rtk.commands.filter((r) => inPeriodDay(r.day) && machineOn(r)),
+    sessions: d.sessions.filter((s) => s.end >= interval()[0] && agentOn(s.agent) && machineOn(s)),
+    ollama: d.ollama.hourly.filter((r) => inPeriodHour(r.hour) && machineOn(r)),
   };
 }
 
@@ -1364,6 +1367,7 @@ async function loadConfig() {
   try { S.config = await (await fetch("/api/config", { cache: "no-store" })).json(); } catch { S.config = {}; }
   document.getElementById("demo-badge").hidden = !S.config?.demo;
   renderSubscriptions();
+  renderMachines();
   initLimitsSetting();
   renderDonate();
   renderUpdate();
@@ -1397,6 +1401,60 @@ function renderSubscriptions() {
       renderSubscriptions();
       document.getElementById("sub-msg").textContent = t("subs.saved");
       renderAll();
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// other machines (Settings > Machines): a VPS running `server.py --agent` (see remote.py)
+// ---------------------------------------------------------------------------
+function mb(bytes) { return ((bytes || 0) / 1e6).toLocaleString(LOC, { maximumFractionDigits: bytes < 1e7 ? 2 : 0 }); }
+
+function machineStatus(info) {
+  if (!info) return esc(t("machines.st.new"));
+  const parts = [];
+  if (info.error === "budget") parts.push(`<span class="status s-critical">${esc(t("machines.st.budget"))}</span>`);
+  else if (info.error === "token") parts.push(`<span class="status s-critical">${esc(t("machines.st.token"))}</span>`);
+  else if (info.error) parts.push(`<span class="status s-critical">${esc(t("machines.st.offline"))}</span> ${esc(info.error)}`);
+  else if (info.last_ok) parts.push(`<span class="status s-good">${esc(t("sources.ok"))}</span>`);
+  if (info.last_ok) parts.push(esc(t("machines.st.synced", { when: timeAgo(info.last_ok) })));
+  parts.push(esc(t("machines.st.traffic", { used: mb(info.bytes_month), max: mb(info.budget) })));
+  if (info.live && info.live_state === "on") parts.push(esc(t("machines.st.live")));
+  return parts.join(" · ");
+}
+
+async function renderMachines() {
+  const el = document.getElementById("machines");
+  if (!el) return;
+  const list = S.machinesEdit || (S.machinesEdit = (S.config?.machines || []).map((m) => ({ ...m, token: "" })));
+  let infos = [];
+  try { infos = await (await fetch("/api/machines", { cache: "no-store" })).json(); } catch { /* offline */ }
+  const byId = new Map(infos.map((i) => [i.id, i]));
+  el.innerHTML = list.map((m, i) => `<div class="sub-row machine-row" data-i="${i}">
+      <label>${esc(t("machines.name"))}<input data-k="name" value="${esc(m.name || "")}" placeholder="VPS"></label>
+      <label>URL<input data-k="url" value="${esc(m.url || "")}" placeholder="http://100.64.0.2:8766"></label>
+      <label>${esc(t("machines.token"))}<input data-k="token" type="password" autocomplete="off" value="${esc(m.token || "")}" placeholder="${esc(m.has_token ? t("machines.token.saved") : "")}"></label>
+      <label>${esc(t("machines.budget"))}<input data-k="budget_mb" type="number" min="1" step="1" value="${m.budget_mb ?? 1000}"></label>
+      <label><span>${esc(t("machines.live"))}</span><input data-k="live" type="checkbox" ${m.live ? "checked" : ""}></label>
+      <button class="btn" data-remove="${i}">${esc(t("subs.remove"))}</button>
+      <div class="machine-status muted">${m.id ? machineStatus(byId.get(m.id)) : esc(t("machines.st.unsaved"))}</div>
+    </div>`).join("")
+    + `<div class="sub-row"><button class="btn" id="machine-add">${esc(t("machines.add"))}</button><button class="btn primary" id="machine-save">${esc(t("subs.save"))}</button><span class="muted" id="machine-msg"></span></div>`;
+  el.querySelectorAll(".machine-row [data-k]").forEach((inp) => inp.oninput = inp.onchange = () => {
+    const m = list[+inp.closest(".machine-row").dataset.i];
+    const k = inp.dataset.k;
+    m[k] = k === "live" ? inp.checked : k === "budget_mb" ? parseFloat(inp.value) : inp.value;
+  });
+  el.querySelectorAll("[data-remove]").forEach((b) => b.onclick = () => { list.splice(+b.dataset.remove, 1); renderMachines(); });
+  document.getElementById("machine-add").onclick = () => { list.push({ name: "VPS", url: "", token: "", live: true, budget_mb: 1000 }); renderMachines(); };
+  document.getElementById("machine-save").onclick = async () => {
+    const r = await post("/api/config", { machines: list.filter((m) => (m.url || "").trim()) });
+    if (r.ok) {
+      S.config = await r.json();
+      S.machinesEdit = null;
+      await renderMachines();
+      document.getElementById("machine-msg").textContent = t("subs.saved");
+      setTimeout(renderMachines, 4000);   // the first check runs right after saving
     }
   };
 }
@@ -1546,6 +1604,15 @@ function renderChips() {
     savePref("hiddenAgents", JSON.stringify([...S.hiddenAgents]));
     renderAll();
   });
+  // machine picker: only when Settings > Machines has at least one
+  const sel = document.getElementById("machine-filter");
+  const names = (S.data.machines || []).map((m) => m.name);
+  if (S.machine !== "all" && S.machine !== "local" && !names.includes(S.machine)) S.machine = "all";
+  sel.hidden = !names.length;
+  const opts = [["all", t("machines.all")], ["local", t("machines.local")], ...names.map((n) => [n, n])];
+  const html = opts.map(([v, l]) => `<option value="${esc(v)}" ${v === S.machine ? "selected" : ""}>${esc(l)}</option>`).join("");
+  if (sel.innerHTML !== html) sel.innerHTML = html;
+  sel.onchange = () => { S.machine = sel.value; savePref("machine", S.machine); renderAll(); };
 }
 
 function renderAll() {

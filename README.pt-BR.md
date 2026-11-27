@@ -185,6 +185,38 @@ Em *O que otimizar*, escolha uma IA e clique em **Analisar com IA**. Ela lê um 
 
 O prompt fica em `prompts/analysis.md`; *Ver o que é enviado* mostra o texto exato.
 
+## Outras máquinas (VPS)
+
+Se você também roda Claude Code ou Codex numa VPS ou em outro computador, o painel pode somar o uso de lá ao daqui.
+
+1. **Na outra máquina**, instale o Token Economy como no Linux acima e rode o agente:
+   ```sh
+   sh start.sh --agent --listen 100.x.y.z   # o IP da máquina no Tailscale (ou outra VPN)
+   ```
+   Ele mostra a URL e um **token** (guardado em `.cache/agent.json`). Sem `--listen`, o agente só aceita conexões da própria máquina: use um túnel, `ssh -N -L 8766:127.0.0.1:8766 servidor`, e a URL `http://127.0.0.1:8766`. Em HTTPS público, coloque um proxy (Caddy, Nginx) na frente.
+2. **Neste painel**, em **Ajustes e fontes › Máquinas**, adicione a máquina com a URL e o token.
+
+Os números da outra máquina entram em todas as abas, e o seletor ao lado dos agentes filtra por máquina. No escritório ao vivo, as sessões dela aparecem com o nome da máquina antes do projeto.
+
+**Tráfego:** só trafegam totais por hora, nunca os logs, prompts ou arquivos. A primeira sincronização traz o histórico uma vez, compactado. Depois disso vai só o que mudou (na prática, a hora atual), e nada quando nada mudou. As checagens são de 5 em 5 minutos com uso e espaçam até 30 minutos sem uso. O escritório ao vivo só busca dados enquanto está aberto na tela, numa conexão que a VPS responde quando há novidade (no máximo uma a cada 3 s). O painel conta os bytes de cada máquina por mês e pausa a máquina ao atingir o teto (1000 MB por padrão). Os limites do plano não trafegam: eles são da conta, e este painel já os lê.
+
+Para deixar o agente rodando no Linux (systemd, `/etc/systemd/system/token-economy-agent.service`):
+
+```ini
+[Unit]
+Description=Token Economy agent
+After=network-online.target
+
+[Service]
+User=usuario
+WorkingDirectory=/home/usuario/token-economy
+ExecStart=/usr/bin/python3 server.py --agent --listen 100.x.y.z
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
 ## Perguntas frequentes
 
 **Como vejo o limite semanal do Claude Code fora do terminal?**

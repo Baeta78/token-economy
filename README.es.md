@@ -185,6 +185,38 @@ En *Qué optimizar*, elige una IA y haz clic en **Analizar con IA**. Lee un resu
 
 El prompt está en `prompts/analysis.md`; *Ver lo que se envía* muestra el texto exacto.
 
+## Otras máquinas (VPS)
+
+Si también usas Claude Code o Codex en un VPS u otra computadora, el panel puede sumar ese uso al de aquí.
+
+1. **En la otra máquina**, instala Token Economy como en Linux arriba y ejecuta el agente:
+   ```sh
+   sh start.sh --agent --listen 100.x.y.z   # la IP de la máquina en Tailscale (u otra VPN)
+   ```
+   Muestra la URL y un **token** (guardado en `.cache/agent.json`). Sin `--listen`, el agente solo acepta conexiones de la propia máquina: usa un túnel, `ssh -N -L 8766:127.0.0.1:8766 servidor`, y la URL `http://127.0.0.1:8766`. Para HTTPS público, pon un proxy (Caddy, Nginx) delante.
+2. **En este panel**, en **Ajustes y fuentes › Máquinas**, añade la máquina con la URL y el token.
+
+Los números de la otra máquina entran en todas las pestañas, y el selector junto a los agentes filtra por máquina. En la oficina en vivo, sus sesiones muestran el nombre de la máquina antes del proyecto.
+
+**Tráfico:** solo viajan totales por hora, nunca los logs, prompts ni archivos. La primera sincronización trae el historial una vez, comprimido. Después solo lo que cambió (en la práctica, la hora actual), y nada cuando nada cambió. Las comprobaciones son cada 5 minutos con uso y se espacian hasta 30 minutos sin uso. La oficina en vivo solo pide datos mientras está abierta en pantalla, con una petición que el VPS responde cuando hay novedades (como máximo una cada 3 s). El panel cuenta los bytes de cada máquina por mes y la pausa al llegar al tope (1000 MB por defecto). Los límites del plan no viajan: son de la cuenta, y este panel ya los lee.
+
+Para dejar el agente corriendo en Linux (systemd, `/etc/systemd/system/token-economy-agent.service`):
+
+```ini
+[Unit]
+Description=Token Economy agent
+After=network-online.target
+
+[Service]
+User=usuario
+WorkingDirectory=/home/usuario/token-economy
+ExecStart=/usr/bin/python3 server.py --agent --listen 100.x.y.z
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
 ## Preguntas frecuentes
 
 **¿Cómo veo el límite semanal de Claude Code fuera de la terminal?**

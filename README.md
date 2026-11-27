@@ -185,6 +185,38 @@ Under *What to optimize*, pick an AI and click **Analyze with AI**. It reads a s
 
 The prompt is in `prompts/analysis.md`; *See what is sent* shows the exact text.
 
+## Other machines (VPS)
+
+If you also run Claude Code or Codex on a VPS or another computer, the panel can add that usage to this one.
+
+1. **On the other machine**, install Token Economy as on Linux above and run the agent:
+   ```sh
+   sh start.sh --agent --listen 100.x.y.z   # the machine's Tailscale (or other VPN) IP
+   ```
+   It prints the URL and a **token** (kept in `.cache/agent.json`). Without `--listen` the agent only accepts connections from the machine itself: use a tunnel, `ssh -N -L 8766:127.0.0.1:8766 server`, and the URL `http://127.0.0.1:8766`. For public HTTPS, put a proxy (Caddy, Nginx) in front.
+2. **In this panel**, under **Settings & sources › Machines**, add the machine with the URL and token.
+
+The other machine's numbers show up in every tab, and the picker next to the agents filters by machine. In the live office its sessions show the machine name before the project.
+
+**Traffic:** only hourly totals travel, never logs, prompts or files. The first sync brings the history once, compressed. After that only what changed (in practice the current hour), and nothing when nothing did. Checks run every 5 minutes while in use and back off to 30 minutes when idle. The live office only fetches data while it is open on screen, over a request the VPS answers when there is news (at most one every 3 s). The panel counts each machine's bytes per month and pauses the machine at its cap (1000 MB by default). Plan limits do not travel: they belong to the account, and this panel already reads them.
+
+To keep the agent running on Linux (systemd, `/etc/systemd/system/token-economy-agent.service`):
+
+```ini
+[Unit]
+Description=Token Economy agent
+After=network-online.target
+
+[Service]
+User=user
+WorkingDirectory=/home/user/token-economy
+ExecStart=/usr/bin/python3 server.py --agent --listen 100.x.y.z
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
 ## FAQ
 
 **How do I see my Claude Code weekly limit outside the terminal?**
